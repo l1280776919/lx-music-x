@@ -1,4 +1,5 @@
 // https://github.com/Binaryify/NeteaseCloudMusicApi/blob/master/util/crypto.js
+import { Buffer } from 'buffer'
 import { createCipheriv, createDecipheriv, publicEncrypt, randomBytes, createHash, constants } from 'crypto'
 const iv = Buffer.from('0102030405060708')
 const presetKey = Buffer.from('0CoJUm6Qyw8W8jud')

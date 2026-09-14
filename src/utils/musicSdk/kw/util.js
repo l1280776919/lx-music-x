@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer'
 import { createCipheriv, createDecipheriv } from 'crypto'
 import { toMD5 } from '../utils'
 

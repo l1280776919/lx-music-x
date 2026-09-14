@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer'
 import crypto from 'node:crypto'
 
 const PART_1_INDEXES = [23, 14, 6, 36, 16, 40, 7, 19]

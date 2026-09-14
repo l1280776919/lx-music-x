@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer'
 import { httpFetch } from '../../request'
 import { decodeKrc } from '@common/utils/lyricUtils/kg'
 

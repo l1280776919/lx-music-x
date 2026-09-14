@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer'
 import { httpFetch } from '../../request'
 import { decodeLyric, lrcTools } from './util'
 import { decodeName } from '../../index'

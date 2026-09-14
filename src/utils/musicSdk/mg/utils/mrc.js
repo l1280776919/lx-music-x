@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer'
 
 // const key = 'karakal@123Qcomyidongtiantianhaoting'
 const DELTA = 2654435769n
