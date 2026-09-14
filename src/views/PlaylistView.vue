@@ -4,21 +4,21 @@
     <header class="flex items-center justify-between flex-shrink-0">
       <div>
         <h1 class="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">我的歌单</h1>
-        <p class="text-sm text-zinc-500 mt-1">本地数据库超高速加载 · 支持旧版数据无缝迁移</p>
+        <p class="text-sm text-zinc-500 mt-1">本地曲库超高速检索 · 原版历史数据无缝迁移</p>
       </div>
       <div class="flex items-center gap-3">
         <button
           class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 text-xs font-bold border border-blue-500/30 transition active:scale-95"
           @click="handleImportLegacy"
         >
-          <span>📥</span>
+          <Download class="w-3.5 h-3.5" />
           <span>{{ importStatusText }}</span>
         </button>
         <button
           class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-lg shadow-emerald-500/25 transition active:scale-95"
           @click="createPlaylist"
         >
-          <span>+</span>
+          <Plus class="w-3.5 h-3.5" />
           <span>新建歌单</span>
         </button>
       </div>
@@ -38,13 +38,13 @@
           @click="selectedListId = list.id"
         >
           <div class="flex items-center gap-3 truncate">
-            <span class="text-lg">{{ list.icon || '📁' }}</span>
+            <component :is="getPlaylistIcon(list.id)" class="w-5 h-5 text-emerald-500 flex-shrink-0" />
             <div class="truncate">
               <div class="text-sm truncate">{{ list.name }}</div>
               <div class="text-[11px] text-zinc-400 font-normal">{{ list.songs.length }} 首歌曲</div>
             </div>
           </div>
-          <span v-if="selectedListId === list.id" class="text-xs text-emerald-500">●</span>
+          <span v-if="selectedListId === list.id" class="w-2 h-2 rounded-full bg-emerald-500"></span>
         </div>
       </aside>
 
@@ -67,7 +67,7 @@
               class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold shadow-md transition active:scale-95 border border-zinc-700/50"
               @click="handleScanLocalMusic"
             >
-              <span>📂</span>
+              <FolderSearch class="w-3.5 h-3.5" />
               <span>扫描本地目录</span>
             </button>
             <button
@@ -75,7 +75,7 @@
               class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition active:scale-95"
               @click="playCurrentListAll"
             >
-              <span>▶</span>
+              <Play class="w-3.5 h-3.5 fill-current" />
               <span>播放此歌单</span>
             </button>
           </div>
@@ -93,26 +93,49 @@
             class="flex items-center justify-between px-6 py-3.5 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 transition group cursor-pointer"
             @dblclick="playSelectedSong(song)"
           >
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-4 min-w-[240px] max-w-[50%]">
               <span class="w-6 text-center text-xs text-zinc-400 font-mono group-hover:text-emerald-500">{{ idx + 1 }}</span>
-              <div class="w-9 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-400">
-                ♪
+              <div class="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex-shrink-0 bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-zinc-400 relative">
+                <img
+                  :src="song.pic || defaultCover"
+                  alt="cover"
+                  referrerpolicy="no-referrer"
+                  class="w-full h-full object-cover"
+                  @error="onImgError"
+                />
               </div>
-              <div>
-                <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-500 transition">
+              <div class="overflow-hidden">
+                <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-500 transition truncate">
                   {{ song.name }}
                 </div>
-                <div class="text-xs text-zinc-400 mt-0.5">{{ song.singer }}</div>
+                <div class="text-xs text-zinc-400 mt-0.5 truncate">{{ song.singer }}</div>
               </div>
             </div>
 
+            <div class="hidden md:block text-xs text-zinc-400 truncate max-w-xs">
+              {{ song.album || '本地音乐' }}
+            </div>
+
             <div class="flex items-center gap-4">
-              <span class="text-xs text-zinc-400 font-mono">{{ song.interval || '03:45' }}</span>
               <button
-                class="w-8 h-8 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-emerald-500 hover:text-white text-zinc-600 dark:text-zinc-300 transition"
+                class="p-2 text-zinc-400 hover:text-red-500 transition active:scale-90"
+                :class="playerStore.isFavorite(song.id) ? 'text-red-500' : ''"
+                title="喜欢"
+                @click.stop="playerStore.toggleFavorite(song.id)"
+              >
+                <Heart
+                  class="w-4 h-4"
+                  :class="playerStore.isFavorite(song.id) ? 'fill-current' : ''"
+                />
+              </button>
+
+              <span class="text-xs text-zinc-400 font-mono w-12 text-right">{{ song.interval || '03:45' }}</span>
+
+              <button
+                class="w-8 h-8 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-emerald-500 hover:text-white text-zinc-600 dark:text-zinc-300 transition active:scale-95"
                 @click.stop="playSelectedSong(song)"
               >
-                ▶
+                <Play class="w-3.5 h-3.5 fill-current ml-0.5" />
               </button>
             </div>
           </div>
@@ -124,13 +147,22 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { Download, Plus, HardDrive, Heart, ListMusic, Archive, Folder, FolderSearch, Play } from 'lucide-vue-next'
 import { usePlayerStore, MusicItem } from '@/store/player'
 import { scanAndImportLegacyData, openFolderPicker, scanLocalMusic, convertLocalAudioSrc } from '@/core/tauriBridge'
+
+const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2310b981"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
+
+function onImgError(e: Event) {
+  const target = e.target as HTMLImageElement
+  if (target.src !== defaultCover) {
+    target.src = defaultCover
+  }
+}
 
 interface PlaylistGroup {
   id: string
   name: string
-  icon?: string
   songs: MusicItem[]
 }
 
@@ -142,13 +174,11 @@ const customLists = ref<PlaylistGroup[]>([
   {
     id: 'local',
     name: '本地音乐',
-    icon: '💻',
     songs: [],
   },
   {
     id: 'fav',
     name: '我喜欢的音乐',
-    icon: '❤️',
     songs: [
       { id: 'fav-1', name: '海阔天空', singer: 'Beyond', album: '海阔天空', interval: '05:24', url: 'https://music.163.com/song/media/outer/url?id=347230.mp3' },
       { id: 'fav-2', name: '光辉岁月', singer: 'Beyond', album: '命运派对', interval: '05:03', url: 'https://music.163.com/song/media/outer/url?id=346576.mp3' },
@@ -157,13 +187,20 @@ const customLists = ref<PlaylistGroup[]>([
   {
     id: 'default',
     name: '默认试听列表',
-    icon: '🎵',
     songs: [
       { id: 'def-1', name: '晴天', singer: '周杰伦', album: '叶惠美', interval: '04:29', url: 'https://music.163.com/song/media/outer/url?id=186016.mp3' },
       { id: 'def-2', name: '起风了', singer: '买辣椒也用券', album: '起风了', interval: '05:25', url: 'https://music.163.com/song/media/outer/url?id=1330348068.mp3' },
     ],
   },
 ])
+
+function getPlaylistIcon(id: string) {
+  if (id === 'local') return HardDrive
+  if (id === 'fav') return Heart
+  if (id === 'default') return ListMusic
+  if (id.startsWith('legacy') || id.startsWith('imported')) return Archive
+  return Folder
+}
 
 const currentList = computed(() => {
   return customLists.value.find(l => l.id === selectedListId.value) || customLists.value[0]
@@ -216,7 +253,6 @@ async function handleScanLocalMusic() {
       localStorage.setItem('lx_local_songs', JSON.stringify(mapped))
     }
     selectedListId.value = 'local'
-    alert(`🎉 扫描完成！成功导入 ${tracks.length} 首本地曲目！`)
   } catch (err: any) {
     alert(`扫描本地音乐失败: ${err?.message || err}`)
   }
@@ -233,7 +269,6 @@ async function handleImportLegacy() {
           customLists.value.push({
             id: p.id,
             name: p.name,
-            icon: '📦',
             songs: p.songs.map(s => ({
               id: s.id,
               name: s.name,
@@ -245,7 +280,6 @@ async function handleImportLegacy() {
         }
       }
       importStatusText.value = `✓ 导入成功 (${res.total_songs}首)`
-      alert(`成功从原版 lx-music-desktop 导入 ${res.playlists.length} 个歌单，共 ${res.total_songs} 首歌曲！`)
     } else {
       importStatusText.value = '未发现原版数据'
       alert('未在默认目录下找到原版 lx-music-desktop 历史数据文件。')
@@ -262,7 +296,6 @@ function createPlaylist() {
     const newList: PlaylistGroup = {
       id: `list-${Date.now()}`,
       name: name.trim(),
-      icon: '✨',
       songs: [],
     }
     customLists.value.push(newList)

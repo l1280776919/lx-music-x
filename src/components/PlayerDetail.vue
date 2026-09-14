@@ -21,11 +21,11 @@
       <!-- 顶部控制条 -->
       <header class="relative z-10 h-14 flex items-center justify-between px-6 border-b border-white/10 backdrop-blur-md">
         <button
-          class="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition text-sm"
+          class="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition active:scale-95"
           title="收起播放页"
           @click="playerStore.isDetailOpen = false"
         >
-          ✕
+          <ChevronDown class="w-5 h-5" />
         </button>
 
         <div class="text-center">
@@ -38,11 +38,11 @@
             FLAC 24bit
           </span>
           <button
-            class="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition text-xs"
+            class="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition text-xs active:scale-95"
             title="音效均衡器"
             @click="playerStore.isSoundEffectOpen = true"
           >
-            🎛️
+            <Sliders class="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -66,7 +66,9 @@
               <img
                 :src="playerStore.currentMusic?.pic || defaultCover"
                 alt="cover"
+                referrerpolicy="no-referrer"
                 class="w-48 h-48 md:w-56 md:h-56 rounded-full object-cover shadow-inner pointer-events-none"
+                @error="onImgError"
               />
 
               <!-- 中心小孔轴心 -->
@@ -77,19 +79,22 @@
           <!-- 歌曲快速收藏与操作 -->
           <div class="flex items-center gap-4 text-sm text-white/70">
             <button
-              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition"
+              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition active:scale-95"
               :class="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? 'text-red-400 font-semibold' : ''"
               @click="playerStore.toggleFavorite(playerStore.currentMusic?.id || '')"
             >
-              <span>{{ playerStore.isFavorite(playerStore.currentMusic?.id || '') ? '❤️' : '🤍' }}</span>
+              <Heart
+                class="w-4 h-4"
+                :class="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? 'text-red-500 fill-current' : 'text-white/60'"
+              />
               <span>喜欢</span>
             </button>
 
             <button
-              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition"
+              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition active:scale-95"
               @click="playerStore.cyclePlayMode()"
             >
-              <span>{{ playModeIcon }}</span>
+              <component :is="playModeComponent" class="w-4 h-4 text-emerald-400" />
               <span>{{ playModeLabel }}</span>
             </button>
           </div>
@@ -112,8 +117,9 @@
               @click="seekToLine(line.time)"
             >
               <div class="flex items-center gap-3">
-                <span class="opacity-0 group-hover:opacity-100 text-xs text-emerald-400 font-mono transition">
-                  ▶ {{ formatTime(line.time) }}
+                <span class="opacity-0 group-hover:opacity-100 text-xs text-emerald-400 font-mono transition flex items-center gap-1">
+                  <Play class="w-3 h-3 fill-current" />
+                  <span>{{ formatTime(line.time) }}</span>
                 </span>
                 <span>{{ line.text }}</span>
               </div>
@@ -127,11 +133,20 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { ChevronDown, Sliders, Heart, Repeat, Repeat1, Shuffle, Play } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
+
+const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2310b981"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
+
+function onImgError(e: Event) {
+  const target = e.target as HTMLImageElement
+  if (target.src !== defaultCover) {
+    target.src = defaultCover
+  }
+}
 
 const playerStore = usePlayerStore()
 const lyricScrollBox = ref<HTMLElement | null>(null)
-const defaultCover = 'https://p2.music.126.net/H7z8x1pC94_e1JzS6o0w4w==/109951165647004069.jpg'
 
 interface ParsedLine {
   time: number
@@ -193,11 +208,11 @@ function formatTime(secs: number) {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-const playModeIcon = computed(() => {
+const playModeComponent = computed(() => {
   switch (playerStore.playMode) {
-    case 'single': return '🔂'
-    case 'random': return '🔀'
-    default: return '🔁'
+    case 'single': return Repeat1
+    case 'random': return Shuffle
+    default: return Repeat
   }
 })
 
@@ -228,3 +243,4 @@ const playModeLabel = computed(() => {
   mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
 }
 </style>
+

@@ -15,7 +15,7 @@
         class="w-full px-5 py-4 pl-12 rounded-2xl bg-white/75 dark:bg-zinc-900/75 border border-zinc-200/60 dark:border-zinc-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 backdrop-blur-xl transition shadow-sm text-sm"
         @keyup.enter="handleSearch"
       />
-      <span class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-lg">🔍</span>
+      <Search class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 w-5 h-5 pointer-events-none" />
       <button
         v-if="keyword"
         class="absolute right-4 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 transition active:scale-95 shadow-sm"
@@ -54,10 +54,12 @@
       </div>
 
       <!-- 空状态提示 -->
-      <div v-else-if="results.length === 0" class="flex-1 flex flex-col items-center justify-center text-zinc-400 py-32">
-        <div class="text-4xl mb-2">🎵</div>
-        <div class="text-sm font-medium">输入关键词回车搜索，享受海量音源畅听</div>
-        <div class="text-xs text-zinc-500 mt-1">支持网易、酷狗、QQ、酷我、咪咕以及自定义源</div>
+      <div v-else-if="results.length === 0" class="flex-1 flex flex-col items-center justify-center text-zinc-400 py-32 space-y-3">
+        <div class="w-16 h-16 rounded-3xl bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center text-zinc-400">
+          <Music2 class="w-8 h-8 stroke-1" />
+        </div>
+        <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300">输入关键词回车搜索，享受海量音源畅听</div>
+        <div class="text-xs text-zinc-400">支持网易、酷狗、QQ、酷我、咪咕以及自定义源</div>
       </div>
 
       <!-- 结果列表 -->
@@ -68,11 +70,16 @@
           class="flex items-center justify-between px-6 py-3.5 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 transition group cursor-pointer"
           @dblclick="playSong(song)"
         >
-          <div class="flex items-center gap-4 min-w-[240px]">
+          <div class="flex items-center gap-4 min-w-[240px] max-w-[50%]">
             <span class="w-6 text-center text-xs font-mono text-zinc-400 group-hover:text-emerald-500">{{ idx + 1 }}</span>
-            <div class="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex-shrink-0 bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-zinc-400">
-              <img v-if="song.pic" :src="song.pic" alt="cover" class="w-full h-full object-cover" />
-              <span v-else>♪</span>
+            <div class="w-11 h-11 rounded-xl overflow-hidden shadow-sm flex-shrink-0 bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-zinc-400 relative">
+              <img
+                :src="song.pic || defaultCover"
+                alt="cover"
+                referrerpolicy="no-referrer"
+                class="w-full h-full object-cover"
+                @error="onImgError"
+              />
             </div>
             <div class="overflow-hidden">
               <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-500 transition truncate">
@@ -89,13 +96,26 @@
           </div>
 
           <div class="flex items-center gap-4">
-            <span class="text-xs text-zinc-400 font-mono">{{ song.interval }}</span>
             <button
-              class="w-8 h-8 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-emerald-500 hover:text-white transition text-zinc-600 dark:text-zinc-300"
+              class="p-2 text-zinc-400 hover:text-red-500 transition active:scale-90"
+              :class="playerStore.isFavorite(song.id) ? 'text-red-500' : ''"
+              title="喜欢"
+              @click.stop="playerStore.toggleFavorite(song.id)"
+            >
+              <Heart
+                class="w-4 h-4"
+                :class="playerStore.isFavorite(song.id) ? 'fill-current' : ''"
+              />
+            </button>
+
+            <span class="text-xs text-zinc-400 font-mono w-12 text-right">{{ song.interval }}</span>
+
+            <button
+              class="w-8 h-8 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-emerald-500 hover:text-white transition text-zinc-600 dark:text-zinc-300 active:scale-95"
               title="播放"
               @click.stop="playSong(song)"
             >
-              ▶
+              <Play class="w-3.5 h-3.5 fill-current ml-0.5" />
             </button>
           </div>
         </div>
@@ -106,8 +126,18 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Search, Music2, Play, Heart } from 'lucide-vue-next'
 import { searchOnlineMusic, supportedSources } from '@/core/onlineMusic'
 import { usePlayerStore, MusicItem } from '@/store/player'
+
+const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2310b981"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
+
+function onImgError(e: Event) {
+  const target = e.target as HTMLImageElement
+  if (target.src !== defaultCover) {
+    target.src = defaultCover
+  }
+}
 
 const playerStore = usePlayerStore()
 const keyword = ref('')

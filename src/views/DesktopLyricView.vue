@@ -13,39 +13,40 @@
     >
       <!-- 歌曲信息 -->
       <div class="flex items-center gap-2 text-zinc-300 truncate max-w-[240px]">
-        <span class="text-emerald-400 font-bold">♪</span>
+        <Music2 class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
         <span class="font-medium truncate">{{ songInfo || 'LX Music X 桌面歌词' }}</span>
       </div>
 
       <!-- 控制按键: 切歌、播放/暂停、字号、锁定 -->
       <div class="flex items-center gap-3">
-        <button class="hover:text-emerald-400 cursor-pointer text-sm transition" title="上一首" @click="controlAction('prev')">
-          ⏮
+        <button class="hover:text-emerald-400 cursor-pointer transition flex items-center justify-center p-1" title="上一首" @click="controlAction('prev')">
+          <SkipBack class="w-3.5 h-3.5 fill-current" />
         </button>
-        <button class="hover:text-emerald-400 cursor-pointer text-sm transition font-bold" :title="isPlaying ? '暂停' : '播放'" @click="controlAction('toggle-play')">
-          {{ isPlaying ? '⏸' : '▶' }}
+        <button class="hover:text-emerald-400 cursor-pointer transition flex items-center justify-center p-1 font-bold" :title="isPlaying ? '暂停' : '播放'" @click="controlAction('toggle-play')">
+          <Pause v-if="isPlaying" class="w-3.5 h-3.5 fill-current" />
+          <Play v-else class="w-3.5 h-3.5 fill-current ml-0.5" />
         </button>
-        <button class="hover:text-emerald-400 cursor-pointer text-sm transition" title="下一首" @click="controlAction('next')">
-          ⏭
+        <button class="hover:text-emerald-400 cursor-pointer transition flex items-center justify-center p-1" title="下一首" @click="controlAction('next')">
+          <SkipForward class="w-3.5 h-3.5 fill-current" />
         </button>
 
         <span class="w-[1px] h-3 bg-white/20"></span>
 
-        <button class="hover:text-emerald-400 cursor-pointer text-xs" title="调小字号" @click="changeFontSize(-2)">
+        <button class="hover:text-emerald-400 cursor-pointer text-xs px-1" title="调小字号" @click="changeFontSize(-2)">
           A-
         </button>
-        <button class="hover:text-emerald-400 cursor-pointer text-xs" title="调大字号" @click="changeFontSize(2)">
+        <button class="hover:text-emerald-400 cursor-pointer text-xs px-1" title="调大字号" @click="changeFontSize(2)">
           A+
         </button>
 
         <span class="w-[1px] h-3 bg-white/20"></span>
 
         <button
-          class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/10 hover:bg-emerald-500 hover:text-white transition cursor-pointer font-medium text-[11px]"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-emerald-500 hover:text-white transition cursor-pointer font-medium text-[11px]"
           title="点击锁定鼠标穿透 (解锁请在托盘菜单或按快捷键)"
           @click="lockWindow"
         >
-          <span>🔓</span>
+          <Lock class="w-3 h-3" />
           <span>锁定穿透</span>
         </button>
       </div>
@@ -79,6 +80,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { Music2, SkipBack, SkipForward, Play, Pause, Lock } from 'lucide-vue-next'
 import { setDesktopLyricIgnoreMouse, listenLyricSync, emitPlayerControl, LyricSyncPayload } from '@/core/tauriBridge'
 import { UnlistenFn } from '@tauri-apps/api/event'
 

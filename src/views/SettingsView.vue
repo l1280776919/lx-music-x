@@ -8,18 +8,24 @@
     <!-- 桌面悬浮置顶歌词 -->
     <section class="p-6 rounded-3xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-xl space-y-4 shadow-sm">
       <div class="flex items-center justify-between">
-        <div>
-          <div class="font-bold text-zinc-900 dark:text-zinc-100 text-base">桌面歌词 (Desktop Lyric)</div>
-          <div class="text-xs text-zinc-500 mt-1">开启独立的置顶透明悬浮桌面歌词窗口，支持动态鼠标穿透与双向切歌控制</div>
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mt-0.5 flex-shrink-0">
+            <Monitor class="w-4 h-4" />
+          </div>
+          <div>
+            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-base">桌面歌词 (Desktop Lyric)</div>
+            <div class="text-xs text-zinc-500 mt-1">开启独立的置顶透明悬浮桌面歌词窗口，支持动态鼠标穿透与双向切歌控制</div>
+          </div>
         </div>
         <button
-          class="px-5 py-2.5 rounded-2xl text-xs font-bold transition active:scale-95 shadow-sm"
+          class="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl text-xs font-bold transition active:scale-95 shadow-sm"
           :class="playerStore.isDesktopLyricOpen
             ? 'bg-emerald-500 text-white shadow-emerald-500/25'
             : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700'"
           @click="toggleDesktopLyric"
         >
-          {{ playerStore.isDesktopLyricOpen ? '✓ 悬浮窗已开启' : '点击开启桌面歌词' }}
+          <Check v-if="playerStore.isDesktopLyricOpen" class="w-3.5 h-3.5" />
+          <span>{{ playerStore.isDesktopLyricOpen ? '悬浮窗已开启' : '点击开启桌面歌词' }}</span>
         </button>
       </div>
     </section>
@@ -27,17 +33,23 @@
     <!-- 自定义源 (User API) 脚本管理 -->
     <section class="p-6 rounded-3xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-xl space-y-4 shadow-sm">
       <div class="flex items-center justify-between">
-        <div>
-          <div class="font-bold text-zinc-900 dark:text-zinc-100 text-base">自定义源脚本系统 (User API)</div>
-          <div class="text-xs text-zinc-500 mt-1">导入 JavaScript 音源解析脚本，利用 Tauri 原生网络栈无跨域解析音源</div>
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mt-0.5 flex-shrink-0">
+            <Code2 class="w-4 h-4" />
+          </div>
+          <div>
+            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-base">自定义源脚本系统 (User API)</div>
+            <div class="text-xs text-zinc-500 mt-1">导入 JavaScript 音源解析脚本，利用 Tauri 原生网络栈无跨域解析音源</div>
+          </div>
         </div>
         <div>
           <input ref="fileInput" type="file" accept=".js" class="hidden" @change="handleFileUpload" />
           <button
-            class="px-4 py-2.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-xs font-bold border border-emerald-500/30 transition active:scale-95"
+            class="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-xs font-bold border border-emerald-500/30 transition active:scale-95"
             @click="triggerFilePick"
           >
-            + 导入脚本 (.js)
+            <Plus class="w-3.5 h-3.5" />
+            <span>导入脚本 (.js)</span>
           </button>
         </div>
       </div>
@@ -55,30 +67,40 @@
         <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ activeScript.description }}</p>
       </div>
 
-      <div class="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-dashed border-zinc-200 dark:border-zinc-700/60 text-xs text-zinc-400 leading-relaxed">
-        💡 提示：社区音源脚本采用标准 JavaScript 编写，在闭包沙箱中运行并已自动绑定 Tauri 原生网络能力，完美支持防盗链与 Referer 伪造。
+      <div class="flex items-center gap-2 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-dashed border-zinc-200 dark:border-zinc-700/60 text-xs text-zinc-400 leading-relaxed">
+        <Info class="w-4 h-4 text-emerald-500 flex-shrink-0" />
+        <span>提示：社区音源脚本采用标准 JavaScript 编写，在闭包沙箱中运行并已自动绑定 Tauri 原生网络能力，完美支持防盗链与 Referer 伪造。</span>
       </div>
     </section>
 
     <!-- 旧版数据向下兼容迁移 -->
     <section class="p-6 rounded-3xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-xl space-y-4 shadow-sm">
       <div class="flex items-center justify-between">
-        <div>
-          <div class="font-bold text-zinc-900 dark:text-zinc-100 text-base">原版数据一键向下兼容迁移 (lx.data.db)</div>
-          <div class="text-xs text-zinc-500 mt-1">自动检测 Electron 版本 lx-music-desktop 的历史歌单、收藏夹和配置，实现无损升级</div>
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-blue-500/15 text-blue-500 flex items-center justify-center mt-0.5 flex-shrink-0">
+            <Database class="w-4 h-4" />
+          </div>
+          <div>
+            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-base">原版数据一键向下兼容迁移 (lx.data.db)</div>
+            <div class="text-xs text-zinc-500 mt-1">自动检测 Electron 版本 lx-music-desktop 的历史歌单、收藏夹和配置，实现无损升级</div>
+          </div>
         </div>
         <button
-          class="px-4 py-2.5 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 text-xs font-bold border border-blue-500/30 transition active:scale-95"
+          class="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 text-xs font-bold border border-blue-500/30 transition active:scale-95"
           @click="checkAndImportDb"
         >
-          {{ dbImportStatus }}
+          <Database class="w-3.5 h-3.5" />
+          <span>{{ dbImportStatus }}</span>
         </button>
       </div>
     </section>
 
     <!-- 系统与底层架构信息 -->
     <section class="p-6 rounded-3xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-xl space-y-3 text-xs shadow-sm">
-      <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm">运行环境与架构状态</div>
+      <div class="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+        <Cpu class="w-4 h-4 text-emerald-500" />
+        <span>运行环境与架构状态</span>
+      </div>
       <div v-if="sysInfo" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-zinc-500 pt-1">
         <div class="p-3 rounded-xl bg-zinc-100/60 dark:bg-zinc-800/40">
           <div class="text-zinc-400 text-[10px]">客户端版本</div>
@@ -104,6 +126,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { Monitor, Code2, Database, Cpu, Check, Plus, Info } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
 import { toggleDesktopLyricWindow, getSystemInfo, scanAndImportLegacyData } from '@/core/tauriBridge'
 import { userApiManager, UserApiScriptMeta } from '@/core/userApi/sandbox'

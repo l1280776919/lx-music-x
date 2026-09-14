@@ -8,8 +8,8 @@
       <!-- 弹窗标题 -->
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-base">
-            🎛️
+          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Sliders class="w-4 h-4" />
           </div>
           <div>
             <h3 class="text-base font-bold text-white tracking-wide">专业音频均衡器 (10-Band EQ)</h3>
@@ -17,10 +17,10 @@
           </div>
         </div>
         <button
-          class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
+          class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-800 text-zinc-400 hover:text-white transition active:scale-95"
           @click="playerStore.isSoundEffectOpen = false"
         >
-          ✕
+          <X class="w-4 h-4" />
         </button>
       </div>
 
@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { Sliders, X } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
 import { freqs, freqsPreset, setBiquadGain, applyFreqPreset, Freqs } from '@/plugins/player'
 
