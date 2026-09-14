@@ -17,7 +17,7 @@
       </div>
     </header>
 
-    <!-- 现代沉浸式音乐焦点 Banner (替换原销售宣传卡片) -->
+    <!-- 现代沉浸式音乐焦点 Banner -->
     <section class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-700 to-zinc-900 p-8 text-white shadow-xl">
       <!-- 背景氛围装饰 -->
       <div class="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-emerald-400/20 blur-3xl pointer-events-none"></div>
@@ -55,8 +55,49 @@
       </div>
     </section>
 
-    <!-- 精选热歌与排行榜 -->
-    <section class="space-y-5">
+    <!-- 2. 精选推荐合辑 (Quick Picks Grid) -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">精选探索合集</h2>
+        <span class="text-xs text-zinc-400">官方与社区热门精选</span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div
+          v-for="card in recommendCards"
+          :key="card.title"
+          class="group p-4 rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800/60 backdrop-blur-xl hover:border-emerald-500/40 hover:shadow-lg transition duration-300 cursor-pointer flex flex-col justify-between"
+          @click="handleCardClick(card)"
+        >
+          <div class="space-y-3">
+            <div class="aspect-square w-full rounded-xl overflow-hidden relative shadow-sm" :class="card.bgGradient">
+              <div class="absolute inset-0 flex items-center justify-center text-white/30 group-hover:scale-110 transition duration-500">
+                <Disc class="w-16 h-16 stroke-1" />
+              </div>
+              <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                  <Play class="w-4 h-4 fill-current ml-0.5" />
+                </div>
+              </div>
+              <div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur text-[10px] font-bold text-white">
+                {{ card.badge }}
+              </div>
+            </div>
+            <div>
+              <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-500 transition line-clamp-1">
+                {{ card.title }}
+              </div>
+              <div class="text-xs text-zinc-400 mt-1 line-clamp-1">
+                {{ card.subtitle }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 精选热歌与排行榜 -->
+    <section class="space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div class="flex items-center gap-3">
           <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">官方热门榜单</h2>
@@ -94,7 +135,7 @@
           @dblclick="playSong(item, index)"
         >
           <!-- 歌曲序号与封面 -->
-          <div class="flex items-center gap-4 min-w-[240px] max-w-[50%]">
+          <div class="flex items-center gap-4 min-w-[220px] max-w-[45%]">
             <div class="w-7 text-center flex-shrink-0">
               <div v-if="isCurrentSong(item) && playerStore.isPlaying" class="flex items-end justify-center gap-[2px] h-3.5">
                 <span class="w-[2.5px] h-full bg-emerald-500 rounded-full animate-bounce"></span>
@@ -201,6 +242,47 @@ const boards = [
   { id: 'wy__3779629', name: '新歌榜', source: 'wy' },
   { id: 'default', name: '精选演示', source: 'local' },
 ]
+
+const recommendCards = [
+  {
+    title: '华语流行巅峰热歌',
+    subtitle: '周杰伦、陈奕迅、林俊杰精选',
+    badge: '官方精选',
+    bgGradient: 'bg-gradient-to-br from-emerald-500 to-teal-800',
+    boardId: 'wy__3778678',
+    source: 'wy',
+  },
+  {
+    title: '云音乐飙升新歌榜',
+    subtitle: '实时热度飙升最快单曲',
+    badge: '实时飙升',
+    bgGradient: 'bg-gradient-to-br from-rose-500 to-orange-700',
+    boardId: 'wy__19723756',
+    source: 'wy',
+  },
+  {
+    title: '粤语经典黄金岁月',
+    subtitle: 'Beyond、张国荣金曲',
+    badge: '岁月留声',
+    bgGradient: 'bg-gradient-to-br from-indigo-500 to-blue-800',
+    boardId: 'wy__3779629',
+    source: 'wy',
+  },
+  {
+    title: '深夜沉浸专注与助眠',
+    subtitle: '纯音乐、钢琴与舒缓器乐',
+    badge: '舒缓解压',
+    bgGradient: 'bg-gradient-to-br from-purple-600 to-pink-800',
+    boardId: 'default',
+    source: 'local',
+  },
+]
+
+async function handleCardClick(card: typeof recommendCards[number]) {
+  const b = boards.find(bd => bd.id === card.boardId) || boards[0]
+  await switchBoard(b)
+  await playAll()
+}
 
 const activeBoardId = ref('default')
 const boardSongs = ref<MusicItem[]>([])

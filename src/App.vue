@@ -15,7 +15,7 @@
     <!-- 主体区域：左侧边栏 + 右侧内容页 -->
     <div class="flex-1 flex overflow-hidden">
       <Sidebar />
-      <main class="flex-1 overflow-y-auto bg-white/40 dark:bg-zinc-900/40 backdrop-blur-sm">
+      <main class="flex-1 overflow-y-auto bg-gradient-to-br from-zinc-50/80 via-zinc-100/50 to-zinc-100 dark:from-zinc-950 dark:via-zinc-900/60 dark:to-zinc-950">
         <RouterView />
       </main>
     </div>

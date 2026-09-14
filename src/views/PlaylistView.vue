@@ -25,9 +25,9 @@
     </header>
 
     <!-- 主体分栏: 左侧歌单选择 + 右侧歌单曲目 -->
-    <div class="flex-1 flex gap-6 overflow-hidden">
+    <div class="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
       <!-- 左侧: 歌单导航栏 -->
-      <aside class="w-64 flex flex-col gap-2 overflow-y-auto pr-1">
+      <aside class="w-full md:w-64 flex-shrink-0 flex flex-col gap-2 overflow-y-auto pr-1 max-h-48 md:max-h-full">
         <div
           v-for="list in customLists"
           :key="list.id"
@@ -49,42 +49,79 @@
       </aside>
 
       <!-- 右侧: 当前歌单内歌曲列表 -->
-      <main class="flex-1 flex flex-col bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 overflow-hidden shadow-sm">
-        <!-- 歌单头部信息 -->
-        <div class="p-6 border-b border-zinc-200/40 dark:border-zinc-800/40 flex items-center justify-between flex-shrink-0">
-          <div>
-            <div class="flex items-center gap-3">
-              <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">{{ currentList?.name }}</h2>
-              <span v-if="selectedListId === 'local'" class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[11px] font-bold border border-emerald-500/20">
-                原生极速扫描
+      <main class="flex-1 flex flex-col bg-white/75 dark:bg-zinc-900/75 backdrop-blur-xl rounded-3xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden shadow-sm">
+        <!-- 歌单精美大头部 (对齐 Apple Music 质感) -->
+        <div class="p-6 md:p-8 border-b border-zinc-200/40 dark:border-zinc-800/40 flex flex-col sm:flex-row items-start sm:items-center gap-6 flex-shrink-0 bg-gradient-to-br from-zinc-50/50 to-zinc-100/30 dark:from-zinc-900/50 dark:to-zinc-800/20">
+          <!-- 歌单大封面 -->
+          <div class="w-28 h-28 md:w-32 md:h-32 rounded-3xl overflow-hidden shadow-xl bg-gradient-to-br from-emerald-500 to-teal-800 flex items-center justify-center flex-shrink-0 relative group">
+            <component :is="getPlaylistIcon(selectedListId)" class="w-14 h-14 text-white/80" />
+            <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+              <Play class="w-8 h-8 text-white fill-current" />
+            </div>
+          </div>
+
+          <!-- 歌单元信息与操作按键 -->
+          <div class="flex-1 space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider">
+                {{ selectedListId === 'local' ? '本地音乐库' : '我的收藏与歌单' }}
+              </span>
+              <span v-if="selectedListId === 'local'" class="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-bold">
+                原生高速检索
               </span>
             </div>
-            <div class="text-xs text-zinc-400 mt-1">共 {{ currentList?.songs.length || 0 }} 首音乐</div>
+
+            <h2 class="text-2xl md:text-3xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
+              {{ currentList?.name }}
+            </h2>
+
+            <div class="text-xs text-zinc-400 flex items-center gap-3">
+              <span>共 {{ currentList?.songs.length || 0 }} 首曲目</span>
+              <span>·</span>
+              <span>高品质本地缓存</span>
+            </div>
+
+            <!-- 操作按钮组 -->
+            <div class="flex items-center gap-3 pt-1">
+              <button
+                v-if="currentList?.songs.length"
+                class="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-lg shadow-emerald-500/25 transition active:scale-95"
+                @click="playCurrentListAll"
+              >
+                <Play class="w-4 h-4 fill-current" />
+                <span>播放全部</span>
+              </button>
+
+              <button
+                v-if="selectedListId === 'local'"
+                class="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold shadow-md transition active:scale-95 border border-zinc-700/50"
+                @click="handleScanLocalMusic"
+              >
+                <FolderSearch class="w-3.5 h-3.5" />
+                <span>扫描本地目录</span>
+              </button>
+            </div>
           </div>
-          <div class="flex items-center gap-3">
-            <button
-              v-if="selectedListId === 'local'"
-              class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold shadow-md transition active:scale-95 border border-zinc-700/50"
-              @click="handleScanLocalMusic"
-            >
-              <FolderSearch class="w-3.5 h-3.5" />
-              <span>扫描本地目录</span>
-            </button>
-            <button
-              v-if="currentList?.songs.length"
-              class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition active:scale-95"
-              @click="playCurrentListAll"
-            >
-              <Play class="w-3.5 h-3.5 fill-current" />
-              <span>播放此歌单</span>
-            </button>
+        </div>
+
+        <!-- 列表表头 -->
+        <div class="px-6 py-2.5 bg-zinc-50/70 dark:bg-zinc-800/40 text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between border-b border-zinc-200/40 dark:border-zinc-800/40">
+          <div class="flex items-center gap-4 min-w-[240px] max-w-[50%]">
+            <span class="w-6 text-center">#</span>
+            <span>歌曲标题与歌手</span>
+          </div>
+          <div class="hidden md:block text-left flex-1 pl-4">专辑</div>
+          <div class="flex items-center gap-4">
+            <span class="w-12 text-right">时长</span>
+            <span class="w-16 text-center">操作</span>
           </div>
         </div>
 
         <!-- 歌曲列表滚动区 -->
         <div class="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/40">
-          <div v-if="!currentList?.songs.length" class="py-24 text-center text-zinc-400 text-sm">
-            歌单暂无歌曲，去搜索页或点击右上角导入历史歌单吧
+          <div v-if="!currentList?.songs.length" class="py-28 text-center text-zinc-400 text-sm space-y-2">
+            <div class="text-2xl">🎵</div>
+            <div>歌单暂无歌曲，去搜索页添加或点击右上角导入历史歌单吧</div>
           </div>
 
           <div
@@ -112,7 +149,7 @@
               </div>
             </div>
 
-            <div class="hidden md:block text-xs text-zinc-400 truncate max-w-xs">
+            <div class="hidden md:block text-xs text-zinc-400 truncate flex-1 pl-4 max-w-xs">
               {{ song.album || '本地音乐' }}
             </div>
 
