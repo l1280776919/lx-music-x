@@ -16,6 +16,7 @@ export const formatPlayCount = (num: number): string => {
   return String(num)
 }
 
+export { toMD5 } from './musicSdk/utils'
 
 export const dateFormat2 = (time: number): string => {
   const differ = Math.trunc((Date.now() - time) / 1000)
@@ -24,3 +25,4 @@ export const dateFormat2 = (time: number): string => {
   if (differ < 86400) return `${Math.trunc(differ / 3600)} 小时前`
   return new Date(time).toLocaleDateString()
 }
+

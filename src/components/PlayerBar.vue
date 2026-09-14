@@ -159,6 +159,19 @@
         <span class="hidden md:inline text-[11px]">桌面歌词</span>
       </button>
 
+      <!-- 播放队列抽屉开关 -->
+      <button
+        class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-semibold transition"
+        :class="playerStore.isQueueOpen
+          ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
+          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-zinc-100'"
+        title="当前播放队列"
+        @click="playerStore.isQueueOpen = !playerStore.isQueueOpen"
+      >
+        <ListMusic class="w-3.5 h-3.5" />
+        <span class="hidden md:inline text-[11px] font-mono">({{ playerStore.playlist.length }})</span>
+      </button>
+
       <!-- 动态音量调节与静音控制 -->
       <div class="flex items-center gap-1.5 pl-1">
         <button
@@ -204,6 +217,7 @@ import {
   Volume1,
   VolumeX,
   Music2,
+  ListMusic,
 } from 'lucide-vue-next'
 
 const playerStore = usePlayerStore()

@@ -6,6 +6,7 @@
       <p class="text-sm text-zinc-500">直连各大音源与自定义源，百万曲目一触即达</p>
     </header>
 
+    <p v-if="searchError" role="alert" class="text-sm text-red-500">{{ searchError }}</p>
     <!-- 搜索输入栏 -->
     <div class="space-y-3 flex-shrink-0">
       <div class="relative">
@@ -131,7 +132,7 @@
                 class="p-2 text-zinc-400 hover:text-red-500 transition active:scale-90"
                 :class="playerStore.isFavorite(song.id) ? 'text-red-500' : ''"
                 title="喜欢"
-                @click.stop="playerStore.toggleFavorite(song.id)"
+                @click.stop="playerStore.toggleFavorite(song)"
               >
                 <Heart
                   class="w-4 h-4"
@@ -184,18 +185,23 @@ const activeSource = ref('wy')
 const isLoading = ref(false)
 const totalCount = ref(0)
 const results = ref<MusicItem[]>([])
+const searchError = ref('')
+let searchGeneration = 0
 
 async function handleSearch() {
   if (!keyword.value.trim()) return
   isLoading.value = true
+  const generation = ++searchGeneration
+  searchError.value = ''
   try {
     const res = await searchOnlineMusic(keyword.value.trim(), activeSource.value)
+    if (generation !== searchGeneration) return
     results.value = res.list
     totalCount.value = res.total
   } catch (err) {
-    console.error('Search failed:', err)
+    if (generation === searchGeneration) { searchError.value = String(err); results.value = []; totalCount.value = 0 }
   } finally {
-    isLoading.value = false
+    if (generation === searchGeneration) isLoading.value = false
   }
 }
 
@@ -207,9 +213,6 @@ async function switchSource(sourceId: string) {
 }
 
 async function playSong(song: MusicItem) {
-  // 添加到当前播放列表并立即播放
-  playerStore.playlist.unshift(song)
-  playerStore.currentIndex = 0
-  await playerStore.playMusic(song)
+  playerStore.addToQueue(song, true)
 }
 </script>

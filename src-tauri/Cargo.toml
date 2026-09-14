@@ -25,6 +25,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.33", features = ["bundled"] }
 walkdir = "2"
+rodio = { version = "0.20.1", features = ["symphonia-all"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "gzip", "brotli", "deflate"] }
+rquickjs = { version = "0.9", features = ["full"] }
+rand = "0.8"
+regex = "1"
+flate2 = "1"
+rsa = "0.9"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

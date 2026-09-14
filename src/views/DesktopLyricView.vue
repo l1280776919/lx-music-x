@@ -57,7 +57,7 @@
       v-if="showLockToast"
       class="absolute top-2 px-4 py-1.5 rounded-full bg-emerald-500/90 text-white text-xs shadow-lg backdrop-blur z-50 animate-fade-in"
     >
-      已锁定鼠标穿透 · 可通过托盘菜单解锁或控制
+      {{ lockToastMessage }}
     </div>
 
     <!-- 歌词主文本渲染区 (支持单行/双行与柔和发光) -->
@@ -82,19 +82,34 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Music2, SkipBack, SkipForward, Play, Pause, Lock } from 'lucide-vue-next'
 import { setDesktopLyricIgnoreMouse, listenLyricSync, emitPlayerControl, LyricSyncPayload } from '@/core/tauriBridge'
-import { UnlistenFn } from '@tauri-apps/api/event'
+import { listen, UnlistenFn } from '@tauri-apps/api/event'
 
 const isHovered = ref(false)
 const isLocked = ref(false)
 const showLockToast = ref(false)
+const lockToastMessage = ref('已锁定鼠标穿透')
 const fontSize = ref(24)
 
-const currentLine = ref('原谅我这一生不羁放纵爱自由')
-const nextLine = ref('也会怕有一天会跌倒')
+const currentLine = ref('洛雪音乐 · 开启你的音乐时光')
+const nextLine = ref('Tauri 2.0 极速轻量重构')
 const isPlaying = ref(true)
-const songInfo = ref('海阔天空 - Beyond')
+const songInfo = ref('LX Music X 桌面歌词')
 
 let unlistenSync: UnlistenFn | undefined
+let unlistenIgnore: UnlistenFn | undefined
+
+async function toggleLockState() {
+  isLocked.value = !isLocked.value
+  isHovered.value = false
+  lockToastMessage.value = isLocked.value
+    ? '已锁定鼠标穿透 · 可通过托盘菜单解锁'
+    : '已解除鼠标穿透 · 恢复鼠标交互'
+  showLockToast.value = true
+  setTimeout(() => {
+    showLockToast.value = false
+  }, 2500)
+  await setDesktopLyricIgnoreMouse(isLocked.value)
+}
 
 onMounted(async () => {
   unlistenSync = await listenLyricSync((payload: LyricSyncPayload) => {
@@ -103,10 +118,19 @@ onMounted(async () => {
     isPlaying.value = payload.isPlaying
     songInfo.value = `${payload.songName} - ${payload.singer}`
   })
+
+  try {
+    unlistenIgnore = await listen('tray-toggle-lyric-ignore', async () => {
+      await toggleLockState()
+    })
+  } catch (e) {
+    console.warn('Failed to listen tray-toggle-lyric-ignore:', e)
+  }
 })
 
 onUnmounted(() => {
   unlistenSync?.()
+  unlistenIgnore?.()
 })
 
 function handleMouseEnter() {
@@ -122,13 +146,9 @@ function changeFontSize(delta: number) {
 }
 
 async function lockWindow() {
-  isLocked.value = true
-  isHovered.value = false
-  showLockToast.value = true
-  setTimeout(() => {
-    showLockToast.value = false
-  }, 2500)
-  await setDesktopLyricIgnoreMouse(true)
+  if (!isLocked.value) {
+    await toggleLockState()
+  }
 }
 
 function controlAction(action: 'toggle-play' | 'prev' | 'next') {

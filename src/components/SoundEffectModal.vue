@@ -13,7 +13,7 @@
           </div>
           <div>
             <h3 class="text-base font-bold text-white tracking-wide">专业音频均衡器 (10-Band EQ)</h3>
-            <p class="text-xs text-zinc-400">Web Audio 原生硬件级实时音频渲染</p>
+            <p class="text-xs text-zinc-400">原生音频实时均衡器</p>
           </div>
         </div>
         <button
@@ -93,13 +93,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
+import { backendState } from '@/core/backend'
 import { Sliders, X } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
 import { freqs, freqsPreset, setBiquadGain, applyFreqPreset, Freqs } from '@/plugins/player'
 
 const playerStore = usePlayerStore()
-const activePresetName = ref('流行 (Pop)')
+const activePresetName = ref('平直 (Flat)')
 
 const gains = reactive<Record<number, number>>({
   31: 6,
@@ -118,6 +119,11 @@ function handleGainChange(hz: Freqs) {
   activePresetName.value = '自定义'
   setBiquadGain(hz, gains[hz])
 }
+
+watch(() => backendState.library.eq, values => {
+  freqs.forEach((hz, i) => { gains[hz] = values[i] })
+  activePresetName.value = freqsPreset.find(p => freqs.every((hz, i) => p[`hz${hz}`] === values[i]))?.name || '自定义'
+}, { immediate: true })
 
 function selectPreset(preset: typeof freqsPreset[number]) {
   activePresetName.value = preset.name

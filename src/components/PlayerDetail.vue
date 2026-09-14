@@ -135,6 +135,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { ChevronDown, Sliders, Heart, Repeat, Repeat1, Shuffle, Play } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
+import { backendState } from '@/core/backend'
 
 const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2310b981"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
 
@@ -148,44 +149,8 @@ function onImgError(e: Event) {
 const playerStore = usePlayerStore()
 const lyricScrollBox = ref<HTMLElement | null>(null)
 
-interface ParsedLine {
-  time: number
-  text: string
-}
-
-const displayLyrics = computed<ParsedLine[]>(() => {
-  const lrc = playerStore.currentMusic?.lrc
-  if (!lrc) return []
-
-  const lines = lrc.split('\n')
-  const res: ParsedLine[] = []
-  const timeExp = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/
-
-  for (const line of lines) {
-    const match = timeExp.exec(line)
-    if (match) {
-      const min = parseInt(match[1])
-      const sec = parseInt(match[2])
-      const ms = parseInt(match[3])
-      const time = min * 60 + sec + ms / (match[3].length === 3 ? 1000 : 100)
-      const text = line.replace(timeExp, '').trim()
-      if (text) {
-        res.push({ time, text })
-      }
-    }
-  }
-  return res
-})
-
-const activeLyricIndex = computed(() => {
-  const t = playerStore.currentTime
-  for (let i = displayLyrics.value.length - 1; i >= 0; i--) {
-    if (t >= displayLyrics.value[i].time - 0.2) {
-      return i
-    }
-  }
-  return 0
-})
+const displayLyrics = computed(() => backendState.lyricEntries)
+const activeLyricIndex = computed(() => playerStore.currentLineIndex)
 
 watch(activeLyricIndex, (newIdx) => {
   if (!playerStore.isDetailOpen || !lyricScrollBox.value) return
@@ -243,4 +208,5 @@ const playModeLabel = computed(() => {
   mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
 }
 </style>
+
 

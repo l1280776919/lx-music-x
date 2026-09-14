@@ -44,7 +44,17 @@
               <div class="text-[11px] text-zinc-400 font-normal">{{ list.songs.length }} 首歌曲</div>
             </div>
           </div>
-          <span v-if="selectedListId === list.id" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <span v-if="selectedListId === list.id" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <button
+              v-if="list.id !== 'fav' && list.id !== 'local'"
+              class="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-rose-500 transition"
+              title="删除歌单"
+              @click.stop="deletePlaylist(list.id)"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -153,16 +163,16 @@
               {{ song.album || '本地音乐' }}
             </div>
 
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
               <button
                 class="p-2 text-zinc-400 hover:text-red-500 transition active:scale-90"
-                :class="playerStore.isFavorite(song.id) ? 'text-red-500' : ''"
+                :class="playlistStore.isFavorite(song.id) ? 'text-red-500' : ''"
                 title="喜欢"
-                @click.stop="playerStore.toggleFavorite(song.id)"
+                @click.stop="playlistStore.toggleFavorite(song)"
               >
                 <Heart
                   class="w-4 h-4"
-                  :class="playerStore.isFavorite(song.id) ? 'fill-current' : ''"
+                  :class="playlistStore.isFavorite(song.id) ? 'fill-current' : ''"
                 />
               </button>
 
@@ -174,6 +184,15 @@
               >
                 <Play class="w-3.5 h-3.5 fill-current ml-0.5" />
               </button>
+
+              <button
+                v-if="selectedListId !== 'local'"
+                class="p-1.5 text-zinc-400 hover:text-rose-500 transition active:scale-90 opacity-0 group-hover:opacity-100"
+                title="从歌单移除"
+                @click.stop="playlistStore.removeSongFromList(selectedListId, song.id)"
+              >
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
@@ -184,9 +203,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Download, Plus, HardDrive, Heart, ListMusic, Archive, Folder, FolderSearch, Play } from 'lucide-vue-next'
+import { Download, Plus, HardDrive, Heart, ListMusic, Archive, Folder, FolderSearch, Play, Trash2 } from 'lucide-vue-next'
 import { usePlayerStore, MusicItem } from '@/store/player'
-import { scanAndImportLegacyData, openFolderPicker, scanLocalMusic, convertLocalAudioSrc } from '@/core/tauriBridge'
+import { usePlaylistStore } from '@/store/playlist'
+import { scanAndImportLegacyData, openFolderPicker, scanLocalMusic } from '@/core/tauriBridge'
 
 const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2310b981"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
 
@@ -197,39 +217,12 @@ function onImgError(e: Event) {
   }
 }
 
-interface PlaylistGroup {
-  id: string
-  name: string
-  songs: MusicItem[]
-}
-
 const playerStore = usePlayerStore()
+const playlistStore = usePlaylistStore()
 const selectedListId = ref('fav')
 const importStatusText = ref('一键迁移原版歌单')
 
-const customLists = ref<PlaylistGroup[]>([
-  {
-    id: 'local',
-    name: '本地音乐',
-    songs: [],
-  },
-  {
-    id: 'fav',
-    name: '我喜欢的音乐',
-    songs: [
-      { id: 'fav-1', name: '海阔天空', singer: 'Beyond', album: '海阔天空', interval: '05:24', url: 'https://music.163.com/song/media/outer/url?id=347230.mp3' },
-      { id: 'fav-2', name: '光辉岁月', singer: 'Beyond', album: '命运派对', interval: '05:03', url: 'https://music.163.com/song/media/outer/url?id=346576.mp3' },
-    ],
-  },
-  {
-    id: 'default',
-    name: '默认试听列表',
-    songs: [
-      { id: 'def-1', name: '晴天', singer: '周杰伦', album: '叶惠美', interval: '04:29', url: 'https://music.163.com/song/media/outer/url?id=186016.mp3' },
-      { id: 'def-2', name: '起风了', singer: '买辣椒也用券', album: '起风了', interval: '05:25', url: 'https://music.163.com/song/media/outer/url?id=1330348068.mp3' },
-    ],
-  },
-])
+const customLists = computed(() => playlistStore.customLists)
 
 function getPlaylistIcon(id: string) {
   if (id === 'local') return HardDrive
@@ -240,26 +233,13 @@ function getPlaylistIcon(id: string) {
 }
 
 const currentList = computed(() => {
-  return customLists.value.find(l => l.id === selectedListId.value) || customLists.value[0]
+  return customLists.value.find((l) => l.id === selectedListId.value) || customLists.value[0]
 })
 
 onMounted(async () => {
-  // 读取已保存的本地音乐缓存
-  try {
-    const savedLocal = localStorage.getItem('lx_local_songs')
-    if (savedLocal) {
-      const localGroup = customLists.value.find(l => l.id === 'local')
-      if (localGroup) {
-        localGroup.songs = JSON.parse(savedLocal)
-      }
-    }
-  } catch {
-    //
-  }
-
   // 静默预检测原版数据库
-  const res = await scanAndImportLegacyData()
-  if (res.found && res.playlists.length > 0) {
+    const res = await scanAndImportLegacyData().catch(() => null)
+    if (res?.found && res.playlists.length > 0) {
     importStatusText.value = `导入原版歌单 (${res.total_songs}首)`
   }
 })
@@ -273,22 +253,7 @@ async function handleScanLocalMusic() {
       alert('所选目录中未发现音频文件 (支持 .mp3/.flac/.wav/.m4a/.ogg 等)')
       return
     }
-    const mapped: MusicItem[] = tracks.map(t => ({
-      id: t.id,
-      name: t.name,
-      singer: t.singer,
-      album: t.album,
-      interval: `${(t.size / (1024 * 1024)).toFixed(1)}MB`,
-      source: 'local',
-      path: t.path,
-      url: convertLocalAudioSrc(t.path),
-    }))
-
-    const localGroup = customLists.value.find(l => l.id === 'local')
-    if (localGroup) {
-      localGroup.songs = mapped
-      localStorage.setItem('lx_local_songs', JSON.stringify(mapped))
-    }
+    await playlistStore.setLocalSongs(tracks)
     selectedListId.value = 'local'
   } catch (err: any) {
     alert(`扫描本地音乐失败: ${err?.message || err}`)
@@ -300,23 +265,9 @@ async function handleImportLegacy() {
   try {
     const res = await scanAndImportLegacyData()
     if (res.found) {
-      for (const p of res.playlists) {
-        const exists = customLists.value.find(l => l.name === p.name)
-        if (!exists) {
-          customLists.value.push({
-            id: p.id,
-            name: p.name,
-            songs: p.songs.map(s => ({
-              id: s.id,
-              name: s.name,
-              singer: s.singer,
-              interval: s.interval,
-              album: '历史导入',
-            })),
-          })
-        }
-      }
+        await playlistStore.importLegacyPlaylists(res.playlists)
       importStatusText.value = `✓ 导入成功 (${res.total_songs}首)`
+      alert(`成功识别原版数据库！已导入 ${res.playlists.length} 个歌单，共 ${res.total_songs} 首歌曲。`)
     } else {
       importStatusText.value = '未发现原版数据'
       alert('未在默认目录下找到原版 lx-music-desktop 历史数据文件。')
@@ -327,28 +278,36 @@ async function handleImportLegacy() {
   }
 }
 
-function createPlaylist() {
+async function createPlaylist() {
   const name = prompt('请输入新歌单名称:')
   if (name && name.trim()) {
-    const newList: PlaylistGroup = {
-      id: `list-${Date.now()}`,
-      name: name.trim(),
-      songs: [],
-    }
-    customLists.value.push(newList)
+    const newList = await playlistStore.createPlaylist(name.trim())
     selectedListId.value = newList.id
   }
 }
 
+async function deletePlaylist(listId: string) {
+  if (confirm('确定要删除这个歌单吗？')) {
+    await playlistStore.removePlaylist(listId)
+    if (selectedListId.value === listId) {
+      selectedListId.value = 'fav'
+    }
+  }
+}
+
 async function playSelectedSong(song: MusicItem) {
-  await playerStore.playMusic(song)
+  if (currentList.value?.songs && currentList.value.songs.length > 0) {
+    const idx = currentList.value.songs.findIndex((s) => s.id === song.id)
+    playerStore.replaceQueue(currentList.value.songs, Math.max(0, idx))
+  } else {
+    playerStore.addToQueue(song, true)
+  }
 }
 
 async function playCurrentListAll() {
   if (currentList.value?.songs.length) {
-    playerStore.playlist = [...currentList.value.songs]
-    playerStore.currentIndex = 0
-    await playerStore.playMusic(currentList.value.songs[0])
+    playerStore.replaceQueue(currentList.value.songs)
   }
 }
 </script>
+

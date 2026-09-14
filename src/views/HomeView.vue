@@ -190,7 +190,7 @@
               class="p-2 text-zinc-400 hover:text-red-500 transition active:scale-90"
               :class="playerStore.isFavorite(item.id) ? 'text-red-500' : ''"
               title="喜欢"
-              @click.stop="playerStore.toggleFavorite(item.id)"
+              @click.stop="playerStore.toggleFavorite(item)"
             >
               <Heart
                 class="w-4 h-4"
@@ -220,7 +220,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Play, Pause, Heart, Sparkles, Flame, Disc } from 'lucide-vue-next'
 import { usePlayerStore, MusicItem } from '@/store/player'
 import { getLeaderboardSongs } from '@/core/onlineMusic'
@@ -237,61 +237,60 @@ function onImgError(e: Event) {
 const playerStore = usePlayerStore()
 
 const boards = [
-  { id: 'wy__19723756', name: '云音乐飙升榜', source: 'wy' },
-  { id: 'wy__3778678', name: '热歌榜', source: 'wy' },
-  { id: 'wy__3779629', name: '新歌榜', source: 'wy' },
-  { id: 'default', name: '精选演示', source: 'local' },
+  { id: '19723756', name: '云音乐飙升榜', source: 'wy' },
+  { id: '3778678', name: '热歌榜', source: 'wy' },
+  { id: '3779629', name: '新歌榜', source: 'wy' },
+  { id: '2884035', name: '原创榜', source: 'wy' },
+  { id: '2250011882', name: '抖音热歌榜', source: 'wy' },
+  { id: '1978921795', name: '电音榜', source: 'wy' },
 ]
 
 const recommendCards = [
   {
-    title: '华语流行巅峰热歌',
-    subtitle: '周杰伦、陈奕迅、林俊杰精选',
-    badge: '官方精选',
-    bgGradient: 'bg-gradient-to-br from-emerald-500 to-teal-800',
-    boardId: 'wy__3778678',
-    source: 'wy',
-  },
-  {
-    title: '云音乐飙升新歌榜',
-    subtitle: '实时热度飙升最快单曲',
+    title: '云音乐官方飙升榜',
+    subtitle: '实时热度飙升最快 100 首单曲',
     badge: '实时飙升',
     bgGradient: 'bg-gradient-to-br from-rose-500 to-orange-700',
-    boardId: 'wy__19723756',
+    boardId: '19723756',
     source: 'wy',
   },
   {
-    title: '粤语经典黄金岁月',
-    subtitle: 'Beyond、张国荣金曲',
-    badge: '岁月留声',
+    title: '华语流行巅峰热歌',
+    subtitle: '全网高热度热播主流金曲',
+    badge: '官方热歌',
+    bgGradient: 'bg-gradient-to-br from-emerald-500 to-teal-800',
+    boardId: '3778678',
+    source: 'wy',
+  },
+  {
+    title: '流行新歌速递排行榜',
+    subtitle: '第一时间发现华语及全球新歌',
+    badge: '新歌速递',
     bgGradient: 'bg-gradient-to-br from-indigo-500 to-blue-800',
-    boardId: 'wy__3779629',
+    boardId: '3779629',
     source: 'wy',
   },
   {
-    title: '深夜沉浸专注与助眠',
-    subtitle: '纯音乐、钢琴与舒缓器乐',
-    badge: '舒缓解压',
+    title: '短视频热播抖音榜',
+    subtitle: '全网刷屏高频出圈神曲',
+    badge: '爆款神曲',
     bgGradient: 'bg-gradient-to-br from-purple-600 to-pink-800',
-    boardId: 'default',
-    source: 'local',
+    boardId: '2250011882',
+    source: 'wy',
   },
 ]
 
 async function handleCardClick(card: typeof recommendCards[number]) {
-  const b = boards.find(bd => bd.id === card.boardId) || boards[0]
+  const b = boards.find((bd) => bd.id === card.boardId) || boards[0]
   await switchBoard(b)
   await playAll()
 }
 
-const activeBoardId = ref('default')
+const activeBoardId = ref('19723756')
 const boardSongs = ref<MusicItem[]>([])
 const isLoadingBoard = ref(false)
 
 const displaySongs = computed(() => {
-  if (activeBoardId.value === 'default' || boardSongs.value.length === 0) {
-    return playerStore.playlist
-  }
   return boardSongs.value
 })
 
@@ -308,11 +307,6 @@ function isCurrentSong(item: MusicItem): boolean {
 
 async function switchBoard(b: typeof boards[number]) {
   activeBoardId.value = b.id
-  if (b.id === 'default') {
-    boardSongs.value = []
-    return
-  }
-
   isLoadingBoard.value = true
   try {
     const list = await getLeaderboardSongs(b.id, b.source)
@@ -324,18 +318,19 @@ async function switchBoard(b: typeof boards[number]) {
   }
 }
 
+onMounted(async () => {
+  await switchBoard(boards[0])
+})
+
 async function playSong(item: MusicItem, _index: number) {
   if (isCurrentSong(item)) {
     await playerStore.togglePlay()
   } else {
-    // 将正在播放的曲目追加到播放列表
-    if (!playerStore.playlist.find(p => p.id === item.id)) {
-      playerStore.playlist.splice(playerStore.currentIndex + 1, 0, item)
-      playerStore.currentIndex++
+    if (displaySongs.value.length > 0) {
+      playerStore.replaceQueue(displaySongs.value, Math.max(0, _index))
     } else {
-      playerStore.currentIndex = playerStore.playlist.findIndex(p => p.id === item.id)
+      playerStore.addToQueue(item, true)
     }
-    await playerStore.playMusic(item)
   }
 }
 
@@ -350,9 +345,7 @@ async function playHeroFeatured() {
 async function playAll() {
   const songs = displaySongs.value
   if (songs.length > 0) {
-    playerStore.playlist = [...songs]
-    playerStore.currentIndex = 0
-    await playerStore.playMusic(songs[0])
+    playerStore.replaceQueue(songs)
   }
 }
 </script>

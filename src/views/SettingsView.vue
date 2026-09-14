@@ -42,7 +42,7 @@
             </div>
             <div>
               <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">专业 10 段硬件 EQ 均衡器</div>
-              <div class="text-xs text-zinc-400 mt-0.5">实时 Web Audio 滤波器阵列，流行、摇滚、人声与平直低延迟音效定制</div>
+              <div class="text-xs text-zinc-400 mt-0.5">实时原生均衡器，支持流行、摇滚、人声与平直音效</div>
             </div>
           </div>
           <button
@@ -59,26 +59,67 @@
     <section class="space-y-3">
       <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1">音源解析与脚本扩展 (User API)</h2>
       <div class="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm p-6 space-y-5">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div class="flex items-center gap-3.5">
             <div class="w-10 h-10 rounded-2xl bg-blue-500/15 text-blue-500 flex items-center justify-center flex-shrink-0">
               <Code2 class="w-5 h-5" />
             </div>
             <div>
-              <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">自定义源脚本沙箱</div>
-              <div class="text-xs text-zinc-400 mt-0.5">导入社区音源脚本，通过 Tauri 原生底层网络栈直连各大音乐平台</div>
+              <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">自定义源脚本沙箱 (User API)</div>
+              <div class="text-xs text-zinc-400 mt-0.5">支持 URL 在线导入与本地文件导入，通过 Tauri 原生网络直连各平台高保真直链</div>
             </div>
           </div>
-          <div>
+          <div class="flex items-center gap-2">
             <input ref="fileInput" type="file" accept=".js" class="hidden" @change="handleFileUpload" />
             <button
-              class="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition active:scale-95"
+              class="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition active:scale-95 border border-zinc-200/50 dark:border-zinc-700/50"
               @click="triggerFilePick"
             >
-              <Plus class="w-3.5 h-3.5" />
-              <span>导入脚本 (.js)</span>
+              <Upload class="w-3.5 h-3.5" />
+              <span>本地文件</span>
+            </button>
+            <button
+              class="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition active:scale-95 border border-zinc-200/50 dark:border-zinc-700/50"
+              @click="resetDefaultSource"
+            >
+              <RotateCcw class="w-3.5 h-3.5" />
+              <span>恢复默认</span>
             </button>
           </div>
+        </div>
+
+        <!-- 在线 URL 导入输入框 -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1">
+            <input
+              v-model="sourceUrlInput"
+              type="text"
+              placeholder="输入或粘贴自定义音源 .js 脚本 URL (如 GitHub Raw 或加速链接)..."
+              class="w-full px-4 py-2.5 rounded-2xl bg-zinc-50/80 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition"
+              @keyup.enter="handleUrlImport"
+            />
+          </div>
+          <button
+            class="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition active:scale-95 disabled:opacity-50"
+            :disabled="isImportingUrl"
+            @click="handleUrlImport"
+          >
+            <Globe class="w-3.5 h-3.5" />
+            <span>{{ isImportingUrl ? '正在拉取...' : '在线导入' }}</span>
+          </button>
+        </div>
+
+        <!-- 常用社区音源推荐快捷导入 Chips -->
+        <div class="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+          <span class="text-zinc-400 text-[11px] font-medium">推荐开源源:</span>
+          <button
+            v-for="p in presetSources"
+            :key="p.name"
+            class="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 hover:bg-emerald-500/15 hover:text-emerald-500 text-zinc-600 dark:text-zinc-300 text-[11px] transition cursor-pointer border border-zinc-200/40 dark:border-zinc-700/40"
+            @click="selectPresetSource(p.url)"
+          >
+            {{ p.name }}
+          </button>
         </div>
 
         <!-- 当前激活脚本卡片 -->
@@ -92,11 +133,14 @@
             <span class="text-xs text-zinc-400">作者: {{ activeScript.author }}</span>
           </div>
           <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{{ activeScript.description }}</p>
+          <div v-if="activeScript.sourceUrl" class="text-[11px] text-zinc-400 font-mono truncate pt-1 border-t border-zinc-200/40 dark:border-zinc-700/40">
+            来源: {{ activeScript.sourceUrl }}
+          </div>
         </div>
 
         <div class="flex items-center gap-2.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/30 text-xs text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-700/50">
           <Info class="w-4 h-4 text-emerald-500 flex-shrink-0" />
-          <span>脚本沙箱已内置 Tauri 原生 HTTP 模块与 Referer/User-Agent 伪造能力，完美支持高解析度音乐直链提取。</span>
+          <span>脚本沙箱已内置 Tauri 2 原生 HTTP 模块与 Referer/User-Agent 伪造能力，完美支持高解析度音乐直链提取。</span>
         </div>
       </div>
     </section>
@@ -163,10 +207,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Monitor, Sliders, Code2, Database, Cpu, Plus, Info } from 'lucide-vue-next'
+import { Monitor, Sliders, Code2, Database, Cpu, Plus, Info, Upload, RotateCcw, Globe } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
+import { usePlaylistStore } from '@/store/playlist'
 import { toggleDesktopLyricWindow, getSystemInfo, scanAndImportLegacyData } from '@/core/tauriBridge'
-import { userApiManager, UserApiScriptMeta } from '@/core/userApi/sandbox'
+import { userApiManager, UserApiScriptMeta, DEFAULT_USER_API_URL } from '@/core/userApi/sandbox'
 
 const playerStore = usePlayerStore()
 const sysInfo = ref<any>(null)
@@ -174,9 +219,23 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const activeScript = ref<UserApiScriptMeta | null>(null)
 const dbImportStatus = ref('检查并导入历史数据')
 
+const sourceUrlInput = ref(DEFAULT_USER_API_URL)
+const isImportingUrl = ref(false)
+
+const presetSources = [
+  { name: 'SixYin 音源 (推荐)', url: 'https://raw.githubusercontent.com/pdone/lx-music-source/main/sixyin/latest.js' },
+  { name: '独家音源 (lx)', url: 'https://raw.githubusercontent.com/pdone/lx-music-source/main/lx/latest.js' },
+  { name: 'Huibq 音源', url: 'https://raw.githubusercontent.com/pdone/lx-music-source/main/huibq/latest.js' },
+  { name: 'Ikun 音源', url: 'https://raw.githubusercontent.com/pdone/lx-music-source/main/ikun/latest.js' },
+]
+
 onMounted(async () => {
   sysInfo.value = await getSystemInfo()
-  activeScript.value = userApiManager.getActiveScript()
+  activeScript.value = await userApiManager.getActiveScript()
+  const savedUrl = activeScript.value?.sourceUrl
+  if (savedUrl) {
+    sourceUrlInput.value = savedUrl
+  }
 })
 
 function toggleDesktopLyric() {
@@ -207,11 +266,38 @@ async function handleFileUpload(e: Event) {
   reader.readAsText(file)
 }
 
+async function handleUrlImport() {
+  if (!sourceUrlInput.value.trim()) return
+  isImportingUrl.value = true
+  try {
+    const meta = await userApiManager.loadScriptFromUrl(sourceUrlInput.value.trim())
+    activeScript.value = meta
+    alert(`音源脚本 [${meta.name}] 在线导入成功！`)
+  } catch (err: any) {
+    alert(`在线导入失败: ${err.message}`)
+  } finally {
+    isImportingUrl.value = false
+  }
+}
+
+async function selectPresetSource(url: string) {
+  sourceUrlInput.value = url
+  await handleUrlImport()
+}
+
+async function resetDefaultSource() {
+  const meta = await userApiManager.resetToDefault()
+  activeScript.value = meta
+  sourceUrlInput.value = DEFAULT_USER_API_URL
+  alert('已恢复为默认内置音源！')
+}
+
 async function checkAndImportDb() {
   dbImportStatus.value = '正在扫描...'
   try {
     const res = await scanAndImportLegacyData()
-    if (res.found) {
+      if (res.found) {
+        await usePlaylistStore().importLegacyPlaylists(res.playlists)
       dbImportStatus.value = `✓ 已兼容 ${res.playlists.length} 个历史歌单 (${res.total_songs} 首)`
       alert(`成功识别原版数据库！已解析 ${res.playlists.length} 个歌单，共 ${res.total_songs} 首歌曲。请前往【我的歌单】页面播放或管理！`)
     } else {

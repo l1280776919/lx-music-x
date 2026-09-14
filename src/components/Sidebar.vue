@@ -37,7 +37,7 @@
     <div class="px-3 py-3 rounded-2xl bg-zinc-100/70 dark:bg-zinc-900/60 border border-zinc-200/50 dark:border-zinc-800/50 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1">
       <div class="flex items-center justify-between font-semibold">
         <span class="text-zinc-700 dark:text-zinc-300">音频渲染器</span>
-        <span class="text-emerald-500 text-[10px] font-mono">WebAudio 2.0</span>
+        <span class="text-emerald-500 text-[10px] font-mono">Native Audio</span>
       </div>
       <div class="text-[10px] text-zinc-400">10-Band EQ · 无损流支持</div>
     </div>

@@ -9,6 +9,15 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [
+    {
+      name: 'ui-boundary',
+      enforce: 'pre',
+      load(id) {
+        if (id.replaceAll('\\', '/').includes('/backend/')) {
+          throw new Error(`前端不得引入后端业务模块: ${id}`);
+        }
+      },
+    },
     vue(),
     UnoCSS(),
   ],

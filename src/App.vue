@@ -11,6 +11,10 @@
   >
     <!-- 顶部原生无边框标题栏 -->
     <TitleBar />
+    <div v-if="backendError || backendState.playback.error" role="alert" class="px-4 py-2 text-sm bg-red-950 text-red-100">
+      {{ backendError || backendState.playback.error }}
+    </div>
+    <div v-else-if="backendState.playback.loading" role="status" class="px-4 py-1 text-xs text-emerald-500">正在加载音频…</div>
 
     <!-- 主体区域：左侧边栏 + 右侧内容页 -->
     <div class="flex-1 flex overflow-hidden">
@@ -28,6 +32,9 @@
 
     <!-- 10 段专业 EQ 音效调节悬浮层 -->
     <SoundEffectModal />
+
+    <!-- 播放队列抽屉 -->
+    <QueueDrawer />
   </div>
 </template>
 
@@ -39,20 +46,19 @@ import Sidebar from '@/components/Sidebar.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import PlayerDetail from '@/components/PlayerDetail.vue'
 import SoundEffectModal from '@/components/SoundEffectModal.vue'
+import QueueDrawer from '@/components/QueueDrawer.vue'
 import { usePlayerStore } from '@/store/player'
 
-import { listenRemoteControls } from '@/core/tauriBridge'
-import { UnlistenFn } from '@tauri-apps/api/event'
+import { backendError, backendState, initializeBackend } from '@/core/backend'
 
 const route = useRoute()
 const playerStore = usePlayerStore()
 const isDesktopLyricRoute = computed(() => route.path === '/desktop-lyric')
-let unlistens: UnlistenFn[] = []
 
 function handleGlobalKeydown(e: KeyboardEvent) {
   // 如果输入框处于焦点中，则不触发播放快捷键
   const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
-  if (tag === 'input' || tag === 'textarea') return
+  if (tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) return
 
   if (e.code === 'Space') {
     e.preventDefault()
@@ -80,6 +86,8 @@ function handleGlobalKeydown(e: KeyboardEvent) {
       playerStore.isDetailOpen = false
     } else if (playerStore.isSoundEffectOpen) {
       playerStore.isSoundEffectOpen = false
+    } else if (playerStore.isQueueOpen) {
+      playerStore.isQueueOpen = false
     }
   }
 }
@@ -87,19 +95,11 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
 
-  // 监听桌面悬浮歌词窗口与系统托盘的控制
-  unlistens = await listenRemoteControls({
-    onTogglePlay: () => playerStore.togglePlay(),
-    onPrev: () => playerStore.playPrev(),
-    onNext: () => playerStore.playNext(),
-  })
+  await initializeBackend().catch(() => {})
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
-  for (const fn of unlistens) {
-    fn()
-  }
 })
 </script>
 

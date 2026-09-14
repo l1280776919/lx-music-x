@@ -146,7 +146,7 @@ export async function listenLyricSync(callback: (payload: LyricSyncPayload) => v
 export async function emitPlayerControl(action: 'toggle-play' | 'prev' | 'next'): Promise<void> {
   if (!isTauri()) return
   try {
-    await emit('player-remote-control', action)
+    await invoke('core_command', { action: action === 'toggle-play' ? 'toggle' : action })
   } catch (err) {
     console.error('Failed to emit player control:', err)
   }
@@ -192,6 +192,8 @@ export interface LocalTrackItem {
   path: string
   ext: string
   size: number
+  source: string
+  interval: string
 }
 
 /**
@@ -217,18 +219,7 @@ export async function openFolderPicker(): Promise<string | null> {
  */
 export async function scanLocalMusic(dirPath: string): Promise<LocalTrackItem[]> {
   if (!isTauri()) {
-    console.log('[TauriBridge Mock] scanLocalMusic:', dirPath)
-    return [
-      {
-        id: 'local_demo_1',
-        name: '本地演示音频 - 无损母带',
-        singer: 'Hi-Fi Studio',
-        album: '本地音乐',
-        path: 'C:\\Music\\demo.flac',
-        ext: 'flac',
-        size: 32456780,
-      }
-    ]
+    return []
   }
   try {
     return await invoke<LocalTrackItem[]>('scan_local_directory', { dirPath })
