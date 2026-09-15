@@ -80,6 +80,9 @@ export const usePlayerStore = defineStore('player', () => {
     playPrev: () => sendCommand('prev'),
     setVolume: (value: number) => sendCommand('volume', { value }),
     toggleMute: () => sendCommand('mute'),
-    seekTime: (time: number) => sendCommand('seek', { time }),
+    seekTime: (time: number) => {
+      state.playback.currentTime = Math.max(0, Math.min(time, state.playback.duration || time))
+      sendCommand('seek', { time })
+    },
   }
 })

@@ -94,6 +94,53 @@ pub struct LocalTrack {
     pub interval: String,
 }
 
+pub fn get_audio_duration_str(path: &std::path::Path) -> String {
+    use std::fs::File;
+    use std::io::BufReader;
+    use rodio::Source;
+
+    if let Ok(file) = File::open(path) {
+        if let Ok(decoder) = rodio::Decoder::new(BufReader::new(file)) {
+            if let Some(dur) = decoder.total_duration() {
+                let secs = dur.as_secs();
+                if secs > 0 {
+                    return format!("{:02}:{:02}", secs / 60, secs % 60);
+                }
+            }
+        }
+    }
+
+    if let Ok(mut file) = std::fs::File::open(path) {
+        use std::io::Read;
+        let mut header = [0u8; 64];
+        if file.read_exact(&mut header).is_ok() {
+            if &header[0..4] == b"RIFF" && &header[8..12] == b"WAVE" {
+                let byte_rate = u32::from_le_bytes([header[28], header[29], header[30], header[31]]);
+                let file_len = file.metadata().map(|m| m.len()).unwrap_or(0);
+                if byte_rate > 0 && file_len > 44 {
+                    let secs = (file_len - 44) / (byte_rate as u64);
+                    return format!("{:02}:{:02}", secs / 60, secs % 60);
+                }
+            }
+            if &header[0..4] == b"fLaC" {
+                let b = &header[18..26];
+                let sr = ((b[0] as u32) << 12) | ((b[1] as u32) << 4) | ((b[2] as u32) >> 4);
+                let samples = (((b[2] & 0x0f) as u64) << 32)
+                    | ((b[3] as u64) << 24)
+                    | ((b[4] as u64) << 16)
+                    | ((b[5] as u64) << 8)
+                    | (b[6] as u64);
+                if sr > 0 && samples > 0 {
+                    let secs = samples / (sr as u64);
+                    return format!("{:02}:{:02}", secs / 60, secs % 60);
+                }
+            }
+        }
+    }
+
+    String::new()
+}
+
 fn scan_local_files(dir_path: String) -> Result<Vec<LocalTrack>, String> {
     let path = std::path::Path::new(&dir_path);
     if !path.exists() || !path.is_dir() {
@@ -127,6 +174,8 @@ fn scan_local_files(dir_path: String) -> Result<Vec<LocalTrack>, String> {
                         ("本地音乐".to_string(), file_name.clone())
                     };
 
+                    let interval = get_audio_duration_str(p);
+
                     tracks.push(LocalTrack {
                         id: format!("local_{}", p.to_string_lossy()),
                         name,
@@ -136,7 +185,7 @@ fn scan_local_files(dir_path: String) -> Result<Vec<LocalTrack>, String> {
                         ext: ext_lower,
                         size,
                         source: "local".into(),
-                        interval: String::new(),
+                        interval,
                     });
                 }
             }

@@ -89,7 +89,7 @@
                 : 'bg-transparent hover:bg-white/[0.05] border-transparent text-zinc-400 hover:text-zinc-200'
             ]"
             :title="isSidebarCollapsed ? `${list.name} (${list.songs.length}首)` : ''"
-            @click="selectedListId = list.id"
+            @click="selectPlaylist(list.id)"
           >
             <div class="flex items-center gap-2.5 truncate">
               <component
@@ -223,9 +223,9 @@
           </div>
           <div class="w-36 md:w-48 lg:w-60 flex-shrink-0 hidden sm:block truncate pr-3">歌手</div>
           <div class="w-32 lg:w-48 flex-shrink-0 hidden md:block truncate pr-3">专辑</div>
-          <div class="flex items-center justify-end gap-3 w-32 flex-shrink-0">
-            <span class="text-right">时长</span>
-            <span class="w-20 text-center">操作</span>
+          <div class="flex items-center justify-end gap-3 w-48 flex-shrink-0">
+            <span class="w-14 text-right pr-2">时长</span>
+            <span class="w-28 text-center">操作</span>
           </div>
         </div>
 
@@ -328,10 +328,10 @@
             </div>
 
             <!-- 时长与操作 (包含喜欢、下载、播放、移除) -->
-            <div class="flex items-center justify-end gap-3 w-32 flex-shrink-0 font-mono text-zinc-400">
-              <span class="text-right text-[11px]">{{ song.interval }}</span>
+            <div class="flex items-center justify-end gap-3 w-48 flex-shrink-0 font-mono text-zinc-400">
+              <span class="w-14 text-right text-[11px] select-none pr-2 flex-shrink-0">{{ song.interval || '--:--' }}</span>
 
-              <div class="flex items-center gap-1.5 w-20 justify-end">
+              <div class="flex items-center gap-1.5 w-28 justify-end flex-shrink-0">
                 <button
                   class="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
                   :class="playerStore.isFavorite(song.id) ? 'text-rose-400' : ''"
@@ -462,7 +462,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Download,
   Plus,
@@ -503,6 +503,7 @@ function onImgError(e: Event) {
 }
 
 const route = useRoute()
+const router = useRouter()
 const playerStore = usePlayerStore()
 const playlistStore = usePlaylistStore()
 const selectedListId = ref('fav')
@@ -511,11 +512,27 @@ const isSidebarCollapsed = ref(true)
 const isImportOnlineModalOpen = ref(false)
 const filterKeyword = ref('')
 
+function selectPlaylist(id: string) {
+  selectedListId.value = id
+  if (id === 'history') {
+    if (route.query.id !== 'history') {
+      router.replace({ query: { id: 'history' } })
+    }
+  } else if (route.query.id) {
+    router.replace({ query: {} })
+  }
+}
+
 watch(
-  () => route.query.id,
-  (newId) => {
+  () => route.fullPath,
+  () => {
+    const newId = route.query.id
     if (newId && typeof newId === 'string') {
       selectedListId.value = newId
+    } else {
+      if (selectedListId.value === 'history') {
+        selectedListId.value = 'fav'
+      }
     }
   },
   { immediate: true }

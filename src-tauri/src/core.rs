@@ -28,7 +28,22 @@ pub struct Core {
 impl Core {
     pub fn start(app: AppHandle, path: PathBuf) -> Result<Self, String> {
         let db = Database::open(&path)?;
-        let library = db.load()?;
+        let mut library = db.load()?;
+        let mut updated = false;
+        for pl in &mut library.playlists {
+            for song in &mut pl.songs {
+                if song.interval.is_empty() && !song.path.is_empty() {
+                    let dur = crate::get_audio_duration_str(std::path::Path::new(&song.path));
+                    if !dur.is_empty() {
+                        song.interval = dur;
+                        updated = true;
+                    }
+                }
+            }
+        }
+        if updated {
+            let _ = db.save(&library);
+        }
         let (tx, rx) = mpsc::channel();
         let core = Self { tx: tx.clone() };
         std::thread::spawn(move || {
@@ -87,7 +102,7 @@ impl Core {
                         if output.is_none() {
                             output = OutputStream::try_default().ok();
                         }
-                        let result = (*result).and_then(|(song, bytes)| {
+                        let result = (*result).and_then(|(mut song, bytes)| {
                             let handle = &output.as_ref().ok_or("未找到可用音频输出设备")?.1;
                             let sink = Sink::try_new(handle).map_err(|e| e.to_string())?;
                             let source: Box<dyn Source<Item = f32> + Send> =
@@ -121,10 +136,26 @@ impl Core {
                                 engine.library.volume
                             });
                             engine.lyrics = Lyrics::parse(&song.lrc, &song.tlrc);
+                            let mut interval_backfilled = false;
                             if let Some(current) =
                                 engine.library.queue.get_mut(engine.library.current_index)
                             {
-                                *current = song;
+                                if song.interval.is_empty() && engine.duration > 0. {
+                                    let secs = engine.duration as u64;
+                                    song.interval = format!("{:02}:{:02}", secs / 60, secs % 60);
+                                    interval_backfilled = true;
+                                }
+                                *current = song.clone();
+                            }
+                            if interval_backfilled {
+                                for pl in &mut engine.library.playlists {
+                                    for s in &mut pl.songs {
+                                        if s.same(&song) && s.interval.is_empty() {
+                                            s.interval = song.interval.clone();
+                                        }
+                                    }
+                                }
+                                let _ = engine.db.save(&engine.library);
                             }
                             engine.sink = Some(sink);
                             Ok(())

@@ -131,12 +131,16 @@
           <div class="w-full h-1 group-hover:h-1.5 bg-white/10 rounded-full transition-all overflow-hidden relative" :class="{ 'h-1.5': isDragging }">
             <div
               class="h-full bg-gradient-to-r from-sky-400 to-blue-500 rounded-full"
+              :class="{ 'transition-[width] duration-150 ease-out': !isDragging }"
               :style="{ width: `${displayProgressPercent}%` }"
             ></div>
           </div>
           <div
-            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] border border-white/20 transition-opacity pointer-events-none"
-            :class="isDragging ? 'opacity-100 scale-125' : 'opacity-0 group-hover:opacity-100'"
+            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] border border-white/20 pointer-events-none"
+            :class="[
+              isDragging ? 'opacity-100 scale-125' : 'opacity-0 group-hover:opacity-100',
+              !isDragging ? 'transition-[left] duration-150 ease-out' : ''
+            ]"
             :style="{ left: `${displayProgressPercent}%` }"
           ></div>
         </div>
@@ -290,10 +294,16 @@ function formatTime(secs: number) {
 const progressBarRef = ref<HTMLElement | null>(null)
 const isDragging = ref(false)
 const dragRatio = ref(0)
+const isSeeking = ref(false)
+const optimisticRatio = ref(0)
+let seekTimer: any = null
 
 const displayProgressPercent = computed(() => {
   if (isDragging.value) {
     return dragRatio.value * 100
+  }
+  if (isSeeking.value) {
+    return optimisticRatio.value * 100
   }
   return playerStore.progressPercent
 })
@@ -302,8 +312,24 @@ const displayCurrentTime = computed(() => {
   if (isDragging.value) {
     return dragRatio.value * (playerStore.duration || 0)
   }
+  if (isSeeking.value) {
+    return optimisticRatio.value * (playerStore.duration || 0)
+  }
   return playerStore.currentTime
 })
+
+function applySeek(ratio: number) {
+  if (!playerStore.duration) return
+  isSeeking.value = true
+  optimisticRatio.value = ratio
+  const targetTime = ratio * playerStore.duration
+  playerStore.seekTime(targetTime)
+
+  if (seekTimer) clearTimeout(seekTimer)
+  seekTimer = setTimeout(() => {
+    isSeeking.value = false
+  }, 400)
+}
 
 function calculateRatio(clientX: number) {
   if (!progressBarRef.value) return 0
@@ -323,9 +349,9 @@ function handleProgressMouseDown(e: MouseEvent) {
 
   function onMouseUp(upEvent: MouseEvent) {
     if (isDragging.value) {
-      dragRatio.value = calculateRatio(upEvent.clientX)
-      const targetTime = dragRatio.value * (playerStore.duration || 0)
-      playerStore.seekTime(targetTime)
+      const finalRatio = calculateRatio(upEvent.clientX)
+      dragRatio.value = finalRatio
+      applySeek(finalRatio)
       isDragging.value = false
     }
     window.removeEventListener('mousemove', onMouseMove)
@@ -348,11 +374,12 @@ function handleProgressTouchStart(e: TouchEvent) {
 
   function onTouchEnd(endEvent: TouchEvent) {
     if (isDragging.value) {
+      let finalRatio = dragRatio.value
       if (endEvent.changedTouches.length > 0) {
-        dragRatio.value = calculateRatio(endEvent.changedTouches[0].clientX)
+        finalRatio = calculateRatio(endEvent.changedTouches[0].clientX)
       }
-      const targetTime = dragRatio.value * (playerStore.duration || 0)
-      playerStore.seekTime(targetTime)
+      dragRatio.value = finalRatio
+      applySeek(finalRatio)
       isDragging.value = false
     }
     window.removeEventListener('touchmove', onTouchMove)
@@ -367,7 +394,7 @@ function handleSeek(e: MouseEvent) {
   // 如果刚才是在拖动释放，不重复触发单次 click seek
   if (isDragging.value) return
   const ratio = calculateRatio(e.clientX)
-  playerStore.seekTime(ratio * (playerStore.duration || 0))
+  applySeek(ratio)
 }
 
 const playModeLabel = computed(() => {
