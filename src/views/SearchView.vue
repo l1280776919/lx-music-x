@@ -1,110 +1,112 @@
 <template>
-  <div class="h-full flex flex-col p-6 space-y-5 max-w-6xl mx-auto overflow-hidden">
-    <!-- 搜索页面顶部 -->
-    <header class="flex-shrink-0 space-y-1">
-      <h1 class="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">全网聚合搜索</h1>
-      <p class="text-sm text-zinc-500">直连各大音源与自定义源，百万曲目一触即达</p>
-    </header>
-
-    <p v-if="searchError" role="alert" class="text-sm text-red-500">{{ searchError }}</p>
-    <!-- 搜索输入栏 -->
-    <div class="space-y-3 flex-shrink-0">
-      <div class="relative">
-        <input
-          v-model="keyword"
-          type="text"
-          placeholder="输入歌曲名、歌手、歌词片段回车搜索 (例如: 周杰伦、海阔天空、晴天)..."
-          class="w-full px-5 py-4 pl-12 pr-28 rounded-2xl bg-white/75 dark:bg-zinc-900/75 border border-zinc-200/60 dark:border-zinc-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 backdrop-blur-xl transition shadow-sm text-sm"
-          @keyup.enter="handleSearch"
-        />
-        <Search class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 w-5 h-5 pointer-events-none" />
-        <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+  <div class="h-full flex flex-col p-4 md:p-6 space-y-3.5 max-w-7xl mx-auto overflow-hidden">
+    <!-- 顶部搜索工具栏 -->
+    <div class="flex-shrink-0 space-y-2.5">
+      <!-- 搜索输入框与音源 Tabs -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2.5">
+        <!-- 搜索输入栏 -->
+        <div class="relative flex-1 max-w-xl">
+          <input
+            v-model="keyword"
+            type="text"
+            placeholder="搜索歌曲名、歌手、歌词..."
+            class="w-full h-9 pl-8 pr-16 rounded-lg bg-white dark:bg-[#18181c] border border-zinc-200/80 dark:border-zinc-700/80 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-brand-500 transition-colors shadow-sm"
+            @keyup.enter="handleSearch"
+          />
+          <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4 pointer-events-none" />
           <button
             v-if="keyword"
-            class="px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 transition active:scale-95 shadow-sm"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-medium transition-colors"
             @click="handleSearch"
           >
             搜索
           </button>
         </div>
-      </div>
 
-      <!-- 热门关键词快捷标签 -->
-      <div class="flex items-center gap-2 flex-wrap text-xs">
-        <span class="text-zinc-400 font-medium">热门搜索:</span>
-        <button
-          v-for="tag in hotTags"
-          :key="tag"
-          class="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300 hover:bg-emerald-500/15 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer"
-          @click="searchTag(tag)"
-        >
-          {{ tag }}
-        </button>
-      </div>
-    </div>
-
-    <!-- 音源平台选择 Chips -->
-    <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
-      <span class="text-xs text-zinc-400 mr-1 font-medium">音源平台:</span>
-      <button
-        v-for="source in supportedSources"
-        :key="source.id"
-        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95"
-        :class="activeSource === source.id
-          ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
-          : 'bg-white/60 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/60 border border-zinc-200/40 dark:border-zinc-700/40'"
-        @click="switchSource(source.id)"
-      >
-        {{ source.name }}
-      </button>
-
-      <span v-if="totalCount > 0" class="ml-auto text-xs text-zinc-400 font-mono">
-        找到 {{ totalCount }} 条结果
-      </span>
-    </div>
-
-    <!-- 搜索结果列表主展示区 -->
-    <div class="flex-1 flex flex-col bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 overflow-hidden shadow-sm">
-      <!-- Loading 状态 -->
-      <div v-if="isLoading" class="flex-1 flex flex-col items-center justify-center gap-3 text-zinc-400 py-32">
-        <div class="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin"></div>
-        <div class="text-xs">正在跨各大音源聚合检索中...</div>
-      </div>
-
-      <!-- 空状态提示 -->
-      <div v-else-if="results.length === 0" class="flex-1 flex flex-col items-center justify-center text-zinc-400 py-28 space-y-3">
-        <div class="w-16 h-16 rounded-3xl bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center text-zinc-400">
-          <Music2 class="w-8 h-8 stroke-1" />
+        <!-- 音源平台选择器 -->
+        <div class="flex items-center gap-1 overflow-x-auto text-xs">
+          <button
+            v-for="source in supportedSources"
+            :key="source.id"
+            class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap cursor-pointer"
+            :class="activeSource === source.id
+              ? 'bg-brand-500 text-white shadow-sm'
+              : 'bg-zinc-200/60 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-zinc-200'"
+            @click="switchSource(source.id)"
+          >
+            {{ source.name }}
+          </button>
         </div>
-        <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300">输入关键词或点击上方热门标签探索全网好歌</div>
-        <div class="text-xs text-zinc-400">支持网易云、酷狗、QQ、酷我、咪咕以及自定义 User API 脚本源</div>
+      </div>
+
+      <!-- 热门关键词快捷标签与结果统计 -->
+      <div class="flex items-center justify-between text-[11px] text-zinc-400">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span>热门:</span>
+          <button
+            v-for="tag in hotTags"
+            :key="tag"
+            class="px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors cursor-pointer"
+            @click="searchTag(tag)"
+          >
+            {{ tag }}
+          </button>
+        </div>
+
+        <span v-if="totalCount > 0" class="font-mono">
+          找到 {{ totalCount }} 条结果
+        </span>
+      </div>
+    </div>
+
+    <p v-if="searchError" role="alert" class="text-xs text-red-500 flex-shrink-0">{{ searchError }}</p>
+
+    <!-- 搜索结果列表表格 -->
+    <div class="flex-1 flex flex-col bg-white dark:bg-[#18181c] rounded-xl border border-zinc-200/70 dark:border-zinc-800/70 overflow-hidden shadow-sm min-h-0">
+      <!-- Loading 状态 -->
+      <div v-if="isLoading" class="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-400 text-xs py-20">
+        <div class="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+        <div>正在搜索中...</div>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else-if="results.length === 0" class="flex-1 flex flex-col items-center justify-center text-zinc-400 py-20 space-y-2 text-xs">
+        <Music2 class="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
+        <div>输入关键词搜索全网音乐</div>
       </div>
 
       <!-- 结果列表 -->
       <div v-else class="flex-1 flex flex-col overflow-hidden">
-        <!-- 列表表头 -->
-        <div class="px-6 py-2.5 bg-zinc-50/70 dark:bg-zinc-800/40 text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between border-b border-zinc-200/40 dark:border-zinc-800/40">
-          <div class="flex items-center gap-4 min-w-[240px] max-w-[50%]">
-            <span class="w-6 text-center">#</span>
-            <span>歌曲标题与歌手</span>
+        <!-- 表头 -->
+        <div class="h-9 px-4 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-[#141416] border-b border-zinc-200/70 dark:border-zinc-800/70 flex items-center justify-between flex-shrink-0 select-none">
+          <div class="flex items-center gap-3 w-[45%] min-w-[240px]">
+            <span class="w-8 text-center">#</span>
+            <span class="flex-1">歌曲标题</span>
           </div>
-          <div class="hidden md:block text-left flex-1 pl-4">专辑</div>
-          <div class="flex items-center gap-4">
-            <span class="w-12 text-right">时长</span>
-            <span class="w-16 text-center">操作</span>
+          <div class="w-[25%] hidden sm:block truncate pr-2">歌手</div>
+          <div class="w-[20%] hidden md:block truncate pr-2">专辑</div>
+          <div class="flex items-center justify-end gap-3 w-24">
+            <span class="text-right">时长</span>
+            <span class="w-10 text-center">操作</span>
           </div>
         </div>
 
+        <!-- 歌曲行列表 -->
         <div class="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/40">
           <div
             v-for="(song, idx) in results"
             :key="song.id"
-            class="flex items-center justify-between px-6 py-3.5 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 transition group cursor-pointer"
+            class="h-11 px-4 flex items-center justify-between text-xs transition-colors group cursor-pointer border-b border-zinc-100/70 dark:border-zinc-800/30 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
             @dblclick="playSong(song)"
           >
-            <div class="flex items-center gap-4 min-w-[240px] max-w-[50%]">
-              <span class="w-6 text-center text-xs font-mono text-zinc-400 group-hover:text-emerald-500">{{ idx + 1 }}</span>
-              <div class="w-11 h-11 rounded-xl overflow-hidden shadow-sm flex-shrink-0 bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-zinc-400 relative">
+            <!-- 序号与标题 -->
+            <div class="flex items-center gap-3 w-[45%] min-w-[240px] overflow-hidden">
+              <div class="w-8 text-center flex-shrink-0 font-mono text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200">
+                {{ (idx + 1).toString().padStart(2, '0') }}
+              </div>
+
+              <!-- 封面 -->
+              <div class="w-7 h-7 rounded overflow-hidden flex-shrink-0 bg-zinc-200 dark:bg-zinc-800">
                 <img
                   :src="song.pic || defaultCover"
                   alt="cover"
@@ -113,42 +115,47 @@
                   @error="onImgError"
                 />
               </div>
-              <div class="overflow-hidden">
-                <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-500 transition truncate">
-                  {{ song.name }}
-                </div>
-                <div class="text-xs text-zinc-400 mt-0.5 truncate">
-                  {{ song.singer }}
-                </div>
-              </div>
+
+              <!-- 歌名 -->
+              <span class="truncate font-medium flex-1 text-zinc-800 dark:text-zinc-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" :title="song.name">
+                {{ song.name }}
+              </span>
             </div>
 
-            <div class="hidden md:block text-xs text-zinc-400 truncate flex-1 pl-4 max-w-xs">
+            <!-- 歌手 -->
+            <div class="w-[25%] hidden sm:block text-zinc-500 dark:text-zinc-400 truncate pr-2" :title="song.singer">
+              {{ song.singer }}
+            </div>
+
+            <!-- 专辑 -->
+            <div class="w-[20%] hidden md:block text-zinc-400 truncate pr-2" :title="song.album">
               {{ song.album || '单曲' }}
             </div>
 
-            <div class="flex items-center gap-4">
-              <button
-                class="p-2 text-zinc-400 hover:text-red-500 transition active:scale-90"
-                :class="playerStore.isFavorite(song.id) ? 'text-red-500' : ''"
-                title="喜欢"
-                @click.stop="playerStore.toggleFavorite(song)"
-              >
-                <Heart
-                  class="w-4 h-4"
-                  :class="playerStore.isFavorite(song.id) ? 'fill-current' : ''"
-                />
-              </button>
+            <!-- 时长与操作 -->
+            <div class="flex items-center justify-end gap-3 w-24 flex-shrink-0 font-mono text-zinc-400">
+              <span class="text-right text-[11px]">{{ song.interval }}</span>
 
-              <span class="text-xs text-zinc-400 font-mono w-12 text-right">{{ song.interval }}</span>
-
-              <button
-                class="w-8 h-8 rounded-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 hover:bg-emerald-500 hover:text-white transition text-zinc-600 dark:text-zinc-300 active:scale-95"
-                title="播放"
-                @click.stop="playSong(song)"
-              >
-                <Play class="w-3.5 h-3.5 fill-current ml-0.5" />
-              </button>
+              <div class="flex items-center gap-1 w-10 justify-end">
+                <button
+                  class="p-1 text-zinc-400 hover:text-rose-500 transition-colors"
+                  :class="playerStore.isFavorite(song.id) ? 'text-rose-500' : ''"
+                  :title="playerStore.isFavorite(song.id) ? '已喜欢' : '喜欢'"
+                  @click.stop="playerStore.toggleFavorite(song)"
+                >
+                  <Heart
+                    class="w-3.5 h-3.5"
+                    :class="playerStore.isFavorite(song.id) ? 'fill-current' : ''"
+                  />
+                </button>
+                <button
+                  class="p-1 text-zinc-400 hover:text-brand-500 transition-colors"
+                  title="播放"
+                  @click.stop="playSong(song)"
+                >
+                  <Play class="w-3.5 h-3.5 fill-current ml-0.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

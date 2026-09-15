@@ -1,187 +1,190 @@
 <template>
-  <footer class="h-20 w-full px-4 sm:px-6 flex items-center justify-between bg-white/85 dark:bg-zinc-950/85 border-t border-zinc-200/60 dark:border-zinc-800/60 backdrop-blur-2xl select-none z-30 transition-colors flex-shrink-0">
-    <!-- 左侧: 歌曲封面与信息 (紧凑成组，杜绝大屏漂移) -->
-    <div class="flex items-center gap-3 w-[220px] sm:w-[260px] md:w-[280px] flex-shrink-0 min-w-0">
+  <footer class="h-[68px] w-full px-4 flex items-center justify-between bg-white dark:bg-[#161619] border-t border-zinc-200/80 dark:border-zinc-800/80 select-none z-50 transition-colors flex-shrink-0">
+    <!-- 左侧: 歌曲封面与信息 -->
+    <div class="flex items-center gap-3 w-[240px] flex-shrink-0 min-w-0">
       <div
-        class="w-12 h-12 rounded-xl relative overflow-hidden group cursor-pointer shadow-md bg-gradient-to-br from-zinc-800 to-zinc-950 flex-shrink-0 flex items-center justify-center"
-        @click="playerStore.isDetailOpen = true"
+        class="w-11 h-11 rounded-lg relative overflow-hidden group cursor-pointer bg-zinc-200 dark:bg-zinc-800 flex-shrink-0 flex items-center justify-center border border-zinc-200/60 dark:border-zinc-700/60"
+        :title="playerStore.isDetailOpen ? '收起详情 (Esc)' : '展开歌词大屏'"
+        @click="playerStore.isDetailOpen = !playerStore.isDetailOpen"
       >
         <img
           v-if="currentCover"
           :src="currentCover"
           referrerpolicy="no-referrer"
           alt="cover"
-          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          class="w-full h-full object-cover"
           @error="handleImgError"
         />
-        <div v-else class="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-600 to-teal-900 text-white">
+        <div v-else class="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-400">
           <Music2 class="w-5 h-5" />
         </div>
-        <!-- 展开悬浮遮罩 -->
+        <!-- 展开/收起遮罩 -->
         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-          <Maximize2 class="w-3.5 h-3.5 text-white" />
+          <ChevronDown v-if="playerStore.isDetailOpen" class="w-4 h-4 text-white" />
+          <Maximize2 v-else class="w-3.5 h-3.5 text-white" />
         </div>
       </div>
 
-      <div class="overflow-hidden flex-1 min-w-0 cursor-pointer" @click="playerStore.isDetailOpen = true">
-        <div class="flex items-center gap-1.5">
-          <div class="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate hover:text-emerald-500 transition-colors">
-            {{ playerStore.currentMusic?.name || '等待播放音乐' }}
-          </div>
-          <!-- 动态跳动音阶微标 -->
-          <div v-if="playerStore.isPlaying" class="flex items-end gap-[2px] h-3 flex-shrink-0">
-            <span class="w-[2px] h-full bg-emerald-500 rounded-full animate-bounce"></span>
-            <span class="w-[2px] h-2/3 bg-emerald-500 rounded-full animate-bounce delay-75"></span>
-            <span class="w-[2px] h-4/5 bg-emerald-500 rounded-full animate-bounce delay-150"></span>
-          </div>
+      <div class="overflow-hidden flex-1 min-w-0">
+        <div
+          class="font-medium text-xs text-zinc-900 dark:text-zinc-100 truncate cursor-pointer hover:text-brand-500 transition-colors"
+          :title="playerStore.isDetailOpen ? '收起详情 (Esc)' : '展开歌词大屏'"
+          @click="playerStore.isDetailOpen = !playerStore.isDetailOpen"
+        >
+          {{ playerStore.currentMusic?.name || '洛雪音乐' }}
         </div>
-        <div class="text-xs text-zinc-400 mt-0.5 truncate hover:text-zinc-300 transition-colors">
-          {{ playerStore.currentMusic?.singer || '网罗全网好音乐' }} · {{ playerStore.currentMusic?.album || 'LX Music X' }}
+        <div class="text-[11px] text-zinc-400 mt-0.5 truncate">
+          {{ playerStore.currentMusic?.singer || '无播放歌曲' }}
+          <span v-if="playerStore.currentMusic?.album"> · {{ playerStore.currentMusic.album }}</span>
         </div>
       </div>
 
-      <!-- 收藏/喜欢按钮: 紧跟在歌曲名称右侧，无漂移！ -->
+      <!-- 收藏按钮 -->
       <button
-        class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition-transform active:scale-90 text-zinc-400 hover:text-rose-500"
-        :title="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? '已收藏' : '添加到我喜欢'"
+        class="w-7 h-7 rounded-md flex-shrink-0 flex items-center justify-center text-zinc-400 hover:text-rose-500 transition-colors"
+        :title="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? '取消喜欢' : '喜欢'"
         @click="playerStore.toggleFavorite(playerStore.currentMusic?.id || '')"
       >
         <Heart
           class="w-4 h-4 transition-colors"
           :class="playerStore.isFavorite(playerStore.currentMusic?.id || '')
-            ? 'fill-rose-500 text-rose-500 scale-110'
+            ? 'fill-rose-500 text-rose-500'
             : 'text-zinc-400 hover:text-rose-500'"
         />
       </button>
     </div>
 
-    <!-- 中间: 播放器核心控制与高精度进度条 (自适应弹性填充，居中对齐) -->
-    <div class="flex flex-col items-center justify-center flex-1 max-w-[640px] min-w-0 px-2 sm:px-6">
-      <div class="flex items-center gap-2 sm:gap-4 md:gap-6">
-        <!-- 播放模式切换 (列表循环/单曲循环/随机播放) -->
+    <!-- 中间: 核心控制与进度条 -->
+    <div class="flex flex-col items-center justify-center flex-1 max-w-[560px] min-w-0 px-4">
+      <!-- 控制按键组 -->
+      <div class="flex items-center gap-4">
+        <!-- 播放模式切换 -->
         <button
-          class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+          class="w-7 h-7 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
           :title="playModeLabel"
           @click="playerStore.cyclePlayMode()"
         >
-          <Shuffle v-if="playerStore.playMode === 'random'" class="w-3.5 h-3.5 text-emerald-500" />
-          <Repeat1 v-else-if="playerStore.playMode === 'single'" class="w-3.5 h-3.5 text-emerald-500" />
+          <Shuffle v-if="playerStore.playMode === 'random'" class="w-3.5 h-3.5 text-brand-500" />
+          <Repeat1 v-else-if="playerStore.playMode === 'single'" class="w-3.5 h-3.5 text-brand-500" />
           <Repeat v-else class="w-3.5 h-3.5" />
         </button>
 
         <!-- 上一首 -->
         <button
-          class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition active:scale-90"
+          class="w-7 h-7 rounded-md flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"
           title="上一首 (Alt + Left)"
           @click="playerStore.playPrev()"
         >
           <SkipBack class="w-4 h-4 fill-current" />
         </button>
 
-        <!-- 播放 / 暂停 主按键 (大圆形现代按键) -->
+        <!-- 播放 / 暂停 -->
         <button
-          class="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/25 transition-transform active:scale-95"
+          class="w-8 h-8 rounded-full bg-brand-500 hover:bg-brand-600 text-white flex items-center justify-center shadow-sm transition-colors"
           :title="playerStore.isPlaying ? '暂停 (空格键)' : '播放 (空格键)'"
           @click="playerStore.togglePlay()"
         >
-          <Pause v-if="playerStore.isPlaying" class="w-4 h-4 fill-current" />
-          <Play v-else class="w-4 h-4 fill-current ml-0.5" />
+          <Pause v-if="playerStore.isPlaying" class="w-3.5 h-3.5 fill-current" />
+          <Play v-else class="w-3.5 h-3.5 fill-current ml-0.5" />
         </button>
 
         <!-- 下一首 -->
         <button
-          class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition active:scale-90"
+          class="w-7 h-7 rounded-md flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"
           title="下一首 (Alt + Right)"
           @click="playerStore.playNext()"
         >
           <SkipForward class="w-4 h-4 fill-current" />
         </button>
 
-        <!-- 展开全屏歌词按钮 -->
+        <!-- 全屏歌词切换 -->
         <button
-          class="hidden sm:flex w-8 h-8 rounded-full items-center justify-center text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
-          title="展开沉浸式歌词大屏"
-          @click="playerStore.isDetailOpen = true"
+          class="w-7 h-7 rounded-md hidden sm:flex items-center justify-center transition-colors"
+          :class="playerStore.isDetailOpen ? 'text-brand-500 bg-brand-500/10' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'"
+          :title="playerStore.isDetailOpen ? '收起歌词详情 (Esc)' : '歌词大屏'"
+          @click="playerStore.isDetailOpen = !playerStore.isDetailOpen"
         >
-          <Maximize2 class="w-3.5 h-3.5" />
+          <ChevronDown v-if="playerStore.isDetailOpen" class="w-4 h-4" />
+          <Maximize2 v-else class="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <!-- 时间与高精度平滑进度条 -->
-      <div class="w-full flex items-center gap-2 sm:gap-3 text-[11px] text-zinc-400 font-mono mt-1">
-        <span class="w-9 text-right tabular-nums text-[10px] sm:text-xs">{{ formatTime(playerStore.currentTime) }}</span>
+      <!-- 进度条 -->
+      <div class="w-full flex items-center gap-2 text-[10px] text-zinc-400 font-mono mt-1">
+        <span class="w-8 text-right tabular-nums">{{ formatTime(playerStore.currentTime) }}</span>
         <div
-          class="flex-1 h-3 flex items-center relative cursor-pointer group"
+          class="flex-1 h-2 flex items-center relative cursor-pointer group"
           @click="handleSeek"
         >
-          <!-- 底槽 -->
           <div class="w-full h-1 group-hover:h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full transition-all overflow-hidden relative">
             <div
-              class="h-full bg-emerald-500 rounded-full transition-all duration-75"
+              class="h-full bg-brand-500 rounded-full"
               :style="{ width: `${playerStore.progressPercent}%` }"
             ></div>
           </div>
-          <!-- 悬浮滑块圆点 -->
           <div
-            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-md border-2 border-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-sm border border-zinc-300 dark:border-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
             :style="{ left: `${playerStore.progressPercent}%` }"
           ></div>
         </div>
-        <span class="w-9 tabular-nums text-[10px] sm:text-xs">{{ formatTime(playerStore.duration) }}</span>
+        <span class="w-8 tabular-nums">{{ formatTime(playerStore.duration) }}</span>
       </div>
     </div>
 
-    <!-- 右侧: 辅助功能 (自适应宽度，响应式收缩) -->
-    <div class="flex items-center justify-end gap-1.5 sm:gap-2.5 w-[160px] sm:w-[220px] md:w-[260px] flex-shrink-0 min-w-0">
-      <!-- 专业 10 段 EQ 音效按键 -->
+    <!-- 右侧: 辅助功能 (音量、EQ、桌面歌词、播放列表) -->
+    <div class="flex items-center justify-end gap-2 w-[240px] flex-shrink-0 min-w-0">
+      <!-- EQ 均衡器 -->
       <button
-        class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-semibold transition"
+        class="p-1.5 rounded-md text-xs font-medium transition-colors"
         :class="playerStore.isSoundEffectOpen
-          ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
-          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-zinc-100'"
-        title="开启专业 10 段 EQ 与空间混响"
+          ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400'
+          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'"
+        title="均衡器 (EQ)"
         @click="playerStore.isSoundEffectOpen = true"
       >
-        <Sliders class="w-3.5 h-3.5" />
-        <span class="hidden sm:inline text-[11px]">EQ</span>
+        <Sliders class="w-4 h-4" />
       </button>
 
-      <!-- 独立桌面悬浮歌词开关 -->
+      <!-- 桌面歌词开关 -->
       <button
-        class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-semibold transition"
+        class="p-1.5 rounded-md text-xs font-medium transition-colors"
         :class="playerStore.isDesktopLyricOpen
-          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
-          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-zinc-100'"
-        title="切换桌面悬浮置顶歌词"
+          ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400'
+          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'"
+        title="桌面歌词"
         @click="handleToggleDesktopLyric"
       >
-        <Quote class="w-3.5 h-3.5" />
-        <span class="hidden md:inline text-[11px]">桌面歌词</span>
+        <Quote class="w-4 h-4" />
       </button>
 
-      <!-- 播放队列抽屉开关 -->
+      <!-- 播放列表 -->
       <button
-        class="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-semibold transition"
+        class="p-1.5 rounded-md text-xs font-medium transition-colors relative"
         :class="playerStore.isQueueOpen
-          ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
-          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-zinc-100'"
-        title="当前播放队列"
+          ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400'
+          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'"
+        title="当前播放列表"
         @click="playerStore.isQueueOpen = !playerStore.isQueueOpen"
       >
-        <ListMusic class="w-3.5 h-3.5" />
-        <span class="hidden md:inline text-[11px] font-mono">({{ playerStore.playlist.length }})</span>
+        <ListMusic class="w-4 h-4" />
+        <span
+          v-if="playerStore.playlist.length > 0"
+          class="absolute -top-1 -right-1 px-1 min-w-[14px] h-[14px] rounded-full bg-brand-500 text-white text-[9px] font-mono flex items-center justify-center leading-none"
+        >
+          {{ playerStore.playlist.length > 99 ? '99+' : playerStore.playlist.length }}
+        </span>
       </button>
 
-      <!-- 动态音量调节与静音控制 -->
+      <!-- 音量控制 -->
       <div class="flex items-center gap-1.5 pl-1">
         <button
           class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-1"
           :title="playerStore.isMuted ? '取消静音' : '静音'"
           @click="playerStore.toggleMute()"
         >
-          <VolumeX v-if="playerStore.isMuted || playerStore.volume === 0" class="w-4 h-4 text-rose-400" />
-          <Volume1 v-else-if="playerStore.volume < 0.5" class="w-4 h-4" />
-          <Volume2 v-else class="w-4 h-4" />
+          <VolumeX v-if="playerStore.isMuted || playerStore.volume === 0" class="w-3.5 h-3.5 text-rose-400" />
+          <Volume1 v-else-if="playerStore.volume < 0.5" class="w-3.5 h-3.5" />
+          <Volume2 v-else class="w-3.5 h-3.5" />
         </button>
         <input
           v-model.number="playerStore.volume"
@@ -189,7 +192,7 @@
           min="0"
           max="1"
           step="0.01"
-          class="w-16 sm:w-20 md:w-24 h-1 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none accent-emerald-500 cursor-pointer"
+          class="w-18 h-1 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none accent-[#2da86c] cursor-pointer"
           @input="playerStore.setVolume(playerStore.volume)"
         />
       </div>
@@ -213,6 +216,7 @@ import {
   Sliders,
   Quote,
   Maximize2,
+  ChevronDown,
   Volume2,
   Volume1,
   VolumeX,

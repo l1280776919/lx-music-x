@@ -1,85 +1,85 @@
 <template>
-  <div class="p-6 md:p-10 space-y-8 max-w-4xl mx-auto">
+  <div class="p-4 md:p-6 space-y-6 max-w-4xl mx-auto overflow-y-auto">
     <!-- 头部标题 -->
     <header class="space-y-1">
-      <h1 class="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">应用设置</h1>
-      <p class="text-sm text-zinc-500">个性化定制音频引擎、桌面悬浮歌词、自定义音源及数据迁移</p>
+      <h1 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">应用设置</h1>
+      <p class="text-xs text-zinc-400">管理音源解析、桌面歌词、数据备份与关于信息</p>
     </header>
 
-    <!-- 1. 桌面歌词与窗口交互 -->
-    <section class="space-y-3">
-      <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1">桌面歌词与视觉</h2>
-      <div class="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800/40">
+    <!-- 1. 桌面歌词与交互 -->
+    <section class="space-y-2">
+      <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider px-0.5">桌面歌词</h2>
+      <div class="bg-white dark:bg-[#18181c] rounded-xl border border-zinc-200/70 dark:border-zinc-800/70 shadow-sm overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800/40">
         <!-- 开启桌面歌词 -->
-        <div class="p-5 flex items-center justify-between hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition">
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center flex-shrink-0">
-              <Monitor class="w-5 h-5" />
+        <div class="p-4 flex items-center justify-between hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-brand-500/10 text-brand-500 flex items-center justify-center flex-shrink-0">
+              <Monitor class="w-4 h-4" />
             </div>
             <div>
-              <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">桌面悬浮歌词窗口</div>
-              <div class="text-xs text-zinc-400 mt-0.5">置顶透明独立歌词窗口，支持毫秒级逐行滚动与鼠标动态穿透</div>
+              <div class="font-medium text-xs text-zinc-900 dark:text-zinc-100">桌面悬浮歌词</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">置顶透明独立歌词窗口，支持鼠标动态穿透与位置拖拽</div>
             </div>
           </div>
-          <!-- iOS 风格平滑切换开关 -->
+          <!-- 简洁开关 -->
           <div
-            class="w-12 h-7 rounded-full transition-colors cursor-pointer p-0.5 relative flex items-center select-none"
-            :class="playerStore.isDesktopLyricOpen ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'"
+            class="w-10 h-5 rounded-full transition-colors cursor-pointer p-0.5 relative flex items-center select-none"
+            :class="playerStore.isDesktopLyricOpen ? 'bg-brand-500' : 'bg-zinc-200 dark:bg-zinc-700'"
             @click="toggleDesktopLyric"
           >
             <div
-              class="w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-200"
+              class="w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-150"
               :class="playerStore.isDesktopLyricOpen ? 'translate-x-5' : 'translate-x-0'"
             ></div>
           </div>
         </div>
 
-        <!-- 音效均衡器快捷入口 -->
-        <div class="p-5 flex items-center justify-between hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition">
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-500 flex items-center justify-center flex-shrink-0">
-              <Sliders class="w-5 h-5" />
+        <!-- 音效均衡器 -->
+        <div class="p-4 flex items-center justify-between hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center flex-shrink-0">
+              <Sliders class="w-4 h-4" />
             </div>
             <div>
-              <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">专业 10 段硬件 EQ 均衡器</div>
-              <div class="text-xs text-zinc-400 mt-0.5">实时原生均衡器，支持流行、摇滚、人声与平直音效</div>
+              <div class="font-medium text-xs text-zinc-900 dark:text-zinc-100">音频均衡器 (10-Band EQ)</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">专业频段调节与音效预设（流行、摇滚、人声、平直）</div>
             </div>
           </div>
           <button
-            class="px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-bold transition active:scale-95"
+            class="desktop-btn-secondary"
             @click="playerStore.isSoundEffectOpen = true"
           >
-            打开调音台
+            打开均衡器
           </button>
         </div>
       </div>
     </section>
 
     <!-- 2. 音源与自定义扩展 (User API) -->
-    <section class="space-y-3">
-      <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1">音源解析与脚本扩展 (User API)</h2>
-      <div class="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm p-6 space-y-5">
+    <section class="space-y-2">
+      <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider px-0.5">音源解析与脚本 (User API)</h2>
+      <div class="bg-white dark:bg-[#18181c] rounded-xl border border-zinc-200/70 dark:border-zinc-800/70 shadow-sm p-4 space-y-3.5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-2xl bg-blue-500/15 text-blue-500 flex items-center justify-center flex-shrink-0">
-              <Code2 class="w-5 h-5" />
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
+              <Code2 class="w-4 h-4" />
             </div>
             <div>
-              <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">自定义源脚本沙箱 (User API)</div>
-              <div class="text-xs text-zinc-400 mt-0.5">支持 URL 在线导入与本地文件导入，通过 Tauri 原生网络直连各平台高保真直链</div>
+              <div class="font-medium text-xs text-zinc-900 dark:text-zinc-100">自定义源脚本 (User API)</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">支持 URL 在线导入与本地 .js 文件导入</div>
             </div>
           </div>
           <div class="flex items-center gap-2">
             <input ref="fileInput" type="file" accept=".js" class="hidden" @change="handleFileUpload" />
             <button
-              class="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition active:scale-95 border border-zinc-200/50 dark:border-zinc-700/50"
+              class="desktop-btn-secondary"
               @click="triggerFilePick"
             >
               <Upload class="w-3.5 h-3.5" />
-              <span>本地文件</span>
+              <span>本地脚本</span>
             </button>
             <button
-              class="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition active:scale-95 border border-zinc-200/50 dark:border-zinc-700/50"
+              class="desktop-btn-secondary"
               @click="resetDefaultSource"
             >
               <RotateCcw class="w-3.5 h-3.5" />
@@ -88,19 +88,19 @@
           </div>
         </div>
 
-        <!-- 在线 URL 导入输入框 -->
+        <!-- 在线导入 -->
         <div class="flex items-center gap-2">
           <div class="relative flex-1">
             <input
               v-model="sourceUrlInput"
               type="text"
-              placeholder="输入或粘贴自定义音源 .js 脚本 URL (如 GitHub Raw 或加速链接)..."
-              class="w-full px-4 py-2.5 rounded-2xl bg-zinc-50/80 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition"
+              placeholder="输入自定义音源 .js 脚本 URL..."
+              class="w-full h-8 px-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/70 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:border-brand-500 transition-colors"
               @keyup.enter="handleUrlImport"
             />
           </div>
           <button
-            class="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition active:scale-95 disabled:opacity-50"
+            class="desktop-btn-primary"
             :disabled="isImportingUrl"
             @click="handleUrlImport"
           >
@@ -109,57 +109,49 @@
           </button>
         </div>
 
-        <!-- 常用社区音源推荐快捷导入 Chips -->
-        <div class="flex items-center gap-2 flex-wrap text-xs pt-0.5">
-          <span class="text-zinc-400 text-[11px] font-medium">推荐开源源:</span>
+        <!-- 社区源快速选择 -->
+        <div class="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
+          <span class="text-zinc-400 text-[11px]">常用源:</span>
           <button
             v-for="p in presetSources"
             :key="p.name"
-            class="px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 hover:bg-emerald-500/15 hover:text-emerald-500 text-zinc-600 dark:text-zinc-300 text-[11px] transition cursor-pointer border border-zinc-200/40 dark:border-zinc-700/40"
+            class="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 hover:text-brand-600 dark:hover:text-brand-400 text-zinc-600 dark:text-zinc-300 text-[11px] transition-colors cursor-pointer border border-zinc-200/50 dark:border-zinc-700/50"
             @click="selectPresetSource(p.url)"
           >
             {{ p.name }}
           </button>
         </div>
 
-        <!-- 当前激活脚本卡片 -->
-        <div v-if="activeScript" class="p-4 rounded-2xl bg-zinc-50/80 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60 space-y-2">
+        <!-- 当前激活脚本状态 -->
+        <div v-if="activeScript" class="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/60 dark:border-zinc-700/60 space-y-1.5 text-xs">
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100">{{ activeScript.name }}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-mono font-bold">v{{ activeScript.version }}</span>
+            <div class="flex items-center gap-2 font-medium text-zinc-800 dark:text-zinc-200">
+              <span class="w-2 h-2 rounded-full bg-brand-500"></span>
+              <span>{{ activeScript.name }}</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-brand-500/10 text-brand-500 font-mono">v{{ activeScript.version }}</span>
             </div>
-            <span class="text-xs text-zinc-400">作者: {{ activeScript.author }}</span>
+            <span class="text-[11px] text-zinc-400">作者: {{ activeScript.author }}</span>
           </div>
-          <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{{ activeScript.description }}</p>
-          <div v-if="activeScript.sourceUrl" class="text-[11px] text-zinc-400 font-mono truncate pt-1 border-t border-zinc-200/40 dark:border-zinc-700/40">
-            来源: {{ activeScript.sourceUrl }}
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2.5 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/30 text-xs text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-700/50">
-          <Info class="w-4 h-4 text-emerald-500 flex-shrink-0" />
-          <span>脚本沙箱已内置 Tauri 2 原生 HTTP 模块与 Referer/User-Agent 伪造能力，完美支持高解析度音乐直链提取。</span>
+          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">{{ activeScript.description }}</p>
         </div>
       </div>
     </section>
 
-    <!-- 3. 原版数据一键兼容迁移 -->
-    <section class="space-y-3">
-      <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1">数据备份与兼容迁移</h2>
-      <div class="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm p-6 flex items-center justify-between">
-        <div class="flex items-center gap-3.5">
-          <div class="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center flex-shrink-0">
-            <Database class="w-5 h-5" />
+    <!-- 3. 数据备份与原版兼容迁移 -->
+    <section class="space-y-2">
+      <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider px-0.5">数据与兼容</h2>
+      <div class="bg-white dark:bg-[#18181c] rounded-xl border border-zinc-200/70 dark:border-zinc-800/70 shadow-sm p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center flex-shrink-0">
+            <Database class="w-4 h-4" />
           </div>
           <div>
-            <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">原版数据无损升级 (lx.data.db)</div>
-            <div class="text-xs text-zinc-400 mt-0.5">自动识别旧版 Electron 桌面端的歌单、我喜欢与试听记录并无缝同步至本地曲库</div>
+            <div class="font-medium text-xs text-zinc-900 dark:text-zinc-100">原版数据迁移 (lx.data.db)</div>
+            <div class="text-[11px] text-zinc-400 mt-0.5">自动识别旧版 Electron 桌面端的歌单、收藏并同步至曲库</div>
           </div>
         </div>
         <button
-          class="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold border border-amber-500/30 transition active:scale-95"
+          class="desktop-btn-secondary"
           @click="checkAndImportDb"
         >
           <Database class="w-3.5 h-3.5" />
@@ -168,37 +160,28 @@
       </div>
     </section>
 
-    <!-- 4. 运行环境与底层架构状态 -->
-    <section class="space-y-3">
-      <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1">运行环境与架构状态</h2>
-      <div class="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-3xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm p-6 space-y-4">
+    <!-- 4. 关于洛雪音乐 -->
+    <section class="space-y-2">
+      <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider px-0.5">关于应用</h2>
+      <div class="bg-white dark:bg-[#18181c] rounded-xl border border-zinc-200/70 dark:border-zinc-800/70 shadow-sm p-4 space-y-3">
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 font-bold text-sm text-zinc-900 dark:text-zinc-100">
-            <Cpu class="w-4 h-4 text-emerald-500" />
-            <span>核心技术栈</span>
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center text-white">
+              <Music2 class="w-4 h-4" />
+            </div>
+            <div>
+              <div class="font-bold text-xs text-zinc-900 dark:text-zinc-100">洛雪音乐 (LX Music X)</div>
+              <div class="text-[10px] text-zinc-400 font-mono">基于 Tauri 2 + Rust + Vue 3</div>
+            </div>
           </div>
-          <span class="text-xs font-mono text-emerald-500 bg-emerald-500/10 px-2.5 py-0.5 rounded-full font-bold">
-            Tauri 2 + Rust + Vue 3.5
+          <span class="text-xs font-mono text-zinc-400">
+            v0.1.5
           </span>
         </div>
 
-        <div v-if="sysInfo" class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-          <div class="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
-            <div class="text-zinc-400 text-[10px]">客户端应用</div>
-            <div class="text-zinc-800 dark:text-zinc-200 font-bold font-mono text-xs mt-1">{{ sysInfo.app_name }} v{{ sysInfo.version }}</div>
-          </div>
-          <div class="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
-            <div class="text-zinc-400 text-[10px]">Tauri 核心框架</div>
-            <div class="text-emerald-500 font-bold font-mono text-xs mt-1">{{ sysInfo.tauri_version }}</div>
-          </div>
-          <div class="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
-            <div class="text-zinc-400 text-[10px]">操作系统</div>
-            <div class="text-zinc-800 dark:text-zinc-200 font-bold font-mono text-xs mt-1 uppercase">{{ sysInfo.os }}</div>
-          </div>
-          <div class="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
-            <div class="text-zinc-400 text-[10px]">CPU 架构</div>
-            <div class="text-zinc-800 dark:text-zinc-200 font-bold font-mono text-xs mt-1 uppercase">{{ sysInfo.arch }}</div>
-          </div>
+        <div class="pt-2 border-t border-zinc-100 dark:border-zinc-800/40 text-[11px] text-zinc-400 leading-relaxed space-y-1">
+          <div>开源许可证：Apache-2.0 License</div>
+          <div>本软件完全开源免费，仅供个人技术研究与音乐欣赏使用，请支持正版音乐。</div>
         </div>
       </div>
     </section>

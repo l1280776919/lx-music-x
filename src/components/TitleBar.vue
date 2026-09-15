@@ -1,22 +1,40 @@
 <template>
   <header
     data-tauri-drag-region
-    class="h-9 w-full flex items-center justify-between px-3 select-none bg-zinc-100/70 dark:bg-zinc-950/70 border-b border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-xl z-50 text-xs"
+    class="h-8 w-full flex items-center justify-between px-3 select-none z-50 text-xs transition-colors"
+    :class="playerStore.isDetailOpen
+      ? 'bg-[#121214] border-b border-white/10 text-white'
+      : 'bg-zinc-100 dark:bg-[#121214] border-b border-zinc-200/80 dark:border-zinc-800/80'"
   >
-    <!-- 左侧标题与状态 -->
-    <div class="flex items-center gap-2 pointer-events-none pl-1">
-      <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></div>
-      <span class="font-semibold text-zinc-600 dark:text-zinc-300 text-[11px] tracking-wide">
-        LX Music X
-      </span>
-      <span class="text-[10px] text-zinc-400 font-normal">· 重构体验版</span>
+    <!-- 左侧应用标题或返回按钮 -->
+    <div class="flex items-center gap-2 pl-1">
+      <button
+        v-if="playerStore.isDetailOpen"
+        class="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-zinc-300 hover:text-white hover:bg-white/10 transition-colors pointer-events-auto cursor-pointer font-medium"
+        title="收起播放详情 (Esc)"
+        @click="playerStore.isDetailOpen = false"
+      >
+        <ChevronDown class="w-3.5 h-3.5" />
+        <span>收起详情</span>
+      </button>
+      <div v-else class="flex items-center gap-2 pointer-events-none">
+        <svg class="w-3.5 h-3.5 text-brand-500 fill-current" viewBox="0 0 24 24">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+        </svg>
+        <span class="font-medium text-zinc-700 dark:text-zinc-300 text-xs tracking-tight">
+          LX Music
+        </span>
+      </div>
     </div>
 
     <!-- 右侧系统窗口控制按钮 (Windows 11 / macOS 极简无边框设计) -->
     <div class="flex items-center h-full -mr-3">
       <!-- 最小化 -->
       <button
-        class="w-11 h-9 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 transition-colors"
+        class="w-11 h-8 flex items-center justify-center transition-colors cursor-pointer"
+        :class="playerStore.isDetailOpen
+          ? 'text-zinc-400 hover:text-white hover:bg-white/10'
+          : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'"
         title="最小化"
         @click="minimizeWindow"
       >
@@ -27,7 +45,10 @@
 
       <!-- 最大化 / 还原 -->
       <button
-        class="w-11 h-9 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 transition-colors"
+        class="w-11 h-8 flex items-center justify-center transition-colors cursor-pointer"
+        :class="playerStore.isDetailOpen
+          ? 'text-zinc-400 hover:text-white hover:bg-white/10'
+          : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'"
         :title="isMaximized ? '向下还原' : '最大化'"
         @click="maximizeWindow"
       >
@@ -42,7 +63,7 @@
 
       <!-- 关闭 -->
       <button
-        class="w-11 h-9 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#e81123] transition-colors"
+        class="w-11 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#e81123] transition-colors cursor-pointer"
         title="关闭"
         @click="closeWindow"
       >
@@ -58,7 +79,10 @@
 import { ref, onMounted } from 'vue'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { isTauri } from '@/core/tauriBridge'
+import { usePlayerStore } from '@/store/player'
+import { ChevronDown } from 'lucide-vue-next'
 
+const playerStore = usePlayerStore()
 const isMaximized = ref(false)
 
 onMounted(async () => {

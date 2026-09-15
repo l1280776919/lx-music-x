@@ -7,19 +7,18 @@
   <!-- 主程序窗口布局 -->
   <div
     v-else
-    class="w-screen h-screen flex flex-col overflow-hidden bg-zinc-100/90 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 select-none font-sans relative"
+    class="w-screen h-screen flex flex-col overflow-hidden bg-zinc-100 dark:bg-[#121214] text-zinc-800 dark:text-zinc-200 select-none font-sans relative"
   >
     <!-- 顶部原生无边框标题栏 -->
     <TitleBar />
-    <div v-if="backendError || backendState.playback.error" role="alert" class="px-4 py-2 text-sm bg-red-950 text-red-100">
-      {{ backendError || backendState.playback.error }}
+    <div v-if="backendError || backendState.playback.error" role="alert" class="px-4 py-1.5 text-xs bg-red-500/10 text-red-600 dark:text-red-400 border-b border-red-500/20 flex items-center justify-between">
+      <span>{{ backendError || backendState.playback.error }}</span>
     </div>
-    <div v-else-if="backendState.playback.loading" role="status" class="px-4 py-1 text-xs text-emerald-500">正在加载音频…</div>
 
     <!-- 主体区域：左侧边栏 + 右侧内容页 -->
     <div class="flex-1 flex overflow-hidden">
       <Sidebar />
-      <main class="flex-1 overflow-y-auto bg-gradient-to-br from-zinc-50/80 via-zinc-100/50 to-zinc-100 dark:from-zinc-950 dark:via-zinc-900/60 dark:to-zinc-950">
+      <main class="flex-1 overflow-y-auto bg-[#fafafa] dark:bg-[#141416]">
         <RouterView />
       </main>
     </div>
@@ -103,20 +102,3 @@ onUnmounted(() => {
 })
 </script>
 
-<style>
-/* 自定义现代平滑滚动条 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(150, 150, 150, 0.2);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(150, 150, 150, 0.4);
-}
-</style>
