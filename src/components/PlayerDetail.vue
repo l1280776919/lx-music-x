@@ -224,11 +224,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ChevronDown, Sliders, Heart, Repeat, Repeat1, Shuffle, Play } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
 import { useThemeStore } from '@/store/theme'
 import { backendState } from '@/core/backend'
+import { listen, UnlistenFn } from '@tauri-apps/api/event'
+import { isTauri, getAppSettings, saveAppSetting } from '@/core/tauriBridge'
 
 const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2310b981"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
 
@@ -285,15 +287,45 @@ const playModeLabel = computed(() => {
 })
 
 // 音频律动频谱 Canvas 渲染引擎
+// 音频律动频谱 Canvas 渲染引擎
 const visualizerCanvas = ref<HTMLCanvasElement | null>(null)
 const VISUALIZER_KEY = 'lx_visualizer_mode'
 const visualizerMode = ref<'bars' | 'wave' | 'off'>(
   (localStorage.getItem(VISUALIZER_KEY) as any) || 'bars'
 )
 
+const realSpectrum = ref<number[]>(new Array(36).fill(0))
+let unlistenSpectrum: UnlistenFn | undefined
+
+onMounted(async () => {
+  if (isTauri()) {
+    getAppSettings().then(settings => {
+      if (settings?.visualizerMode) {
+        visualizerMode.value = settings.visualizerMode
+      }
+    })
+    unlistenSpectrum = await listen<number[]>('audio-spectrum', (e) => {
+      if (Array.isArray(e.payload)) {
+        realSpectrum.value = e.payload
+      }
+    })
+  }
+})
+
+onUnmounted(() => {
+  unlistenSpectrum?.()
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId)
+    animFrameId = null
+  }
+})
+
 function setVisualizerMode(mode: 'bars' | 'wave' | 'off') {
   visualizerMode.value = mode
   localStorage.setItem(VISUALIZER_KEY, mode)
+  if (isTauri()) {
+    saveAppSetting('visualizerMode', mode)
+  }
 }
 
 let animFrameId: number | null = null
@@ -319,23 +351,26 @@ function renderVisualizer() {
   }
 
   const isPlaying = playerStore.isPlaying
-  const speed = isPlaying ? 0.08 : 0.02
+  const speed = isPlaying ? 0.06 : 0.015
   waveOffset += speed
+
+  const bands = realSpectrum.value
+  const hasRealAudio = isPlaying && bands.some(b => b > 0.01)
 
   if (visualizerMode.value === 'bars') {
     const numBars = 36
     const barWidth = 5
     const gap = (w - numBars * barWidth) / (numBars - 1)
-    const mid = numBars / 2
 
     for (let i = 0; i < numBars; i++) {
-      const distFromCenter = 1 - Math.abs(i - mid) / mid
-      const basePulse = isPlaying
-        ? Math.sin(waveOffset * 2.5 + i * 0.45) * 0.4 +
-          Math.cos(waveOffset * 1.8 + i * 0.25) * 0.3 + 0.35
-        : 0.08 + Math.sin(waveOffset + i * 0.2) * 0.04
+      let energy = 0.04
+      if (hasRealAudio) {
+        energy = Math.max(0.04, bands[i] ?? 0)
+      } else if (isPlaying) {
+        // Idle motion before audio stream starts
+        energy = 0.06 + Math.sin(waveOffset * 1.5 + i * 0.3) * 0.03
+      }
 
-      const energy = Math.max(0.06, basePulse * distFromCenter)
       const barHeight = Math.min(h - 4, Math.max(4, energy * h * 0.95))
       const x = i * (barWidth + gap)
       const y = (h - barHeight) / 2
@@ -356,9 +391,12 @@ function renderVisualizer() {
     ctx.shadowBlur = 10
     ctx.shadowColor = 'rgba(56, 189, 248, 0.5)'
 
+    const avgEnergy = bands.reduce((acc, v) => acc + v, 0) / (bands.length || 1)
+    const waveAmpMultiplier = isPlaying ? Math.max(0.4, avgEnergy * 3.5) : 0.2
+
     const layers = [
-      { color: 'rgba(56, 189, 248, 0.75)', amp: isPlaying ? 16 : 4, freq: 0.025, phase: 0 },
-      { color: 'rgba(129, 140, 248, 0.55)', amp: isPlaying ? 12 : 3, freq: 0.035, phase: 2 },
+      { color: 'rgba(56, 189, 248, 0.75)', amp: 18 * waveAmpMultiplier, freq: 0.025, phase: 0 },
+      { color: 'rgba(129, 140, 248, 0.55)', amp: 12 * waveAmpMultiplier, freq: 0.035, phase: 2 },
     ]
 
     for (const l of layers) {

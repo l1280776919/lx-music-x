@@ -52,6 +52,7 @@ impl Core {
             // The OS stream lives on this thread for its entire lifetime.
             let mut output = OutputStream::try_default().ok();
             let eq = Arc::new(Mutex::new(library.eq));
+            let spectrum_state = Arc::new(Mutex::new(crate::audio_spectrum::SpectrumState::new()));
             let mut engine = Engine {
                 emit_event: Box::new(move |event, payload| {
                     let _ = app.emit(event, payload);
@@ -60,6 +61,7 @@ impl Core {
                 library,
                 sink: None,
                 eq,
+                spectrum_state: spectrum_state.clone(),
                 lyrics: Lyrics::default(),
                 generation: 0,
                 loading: false,
@@ -67,9 +69,11 @@ impl Core {
                 duration: 0.,
                 resolve_tx,
                 revision: 0,
+                sleep_timer: None,
+                tick_counter: 0,
             };
             loop {
-                match rx.recv_timeout(Duration::from_millis(200)) {
+                match rx.recv_timeout(Duration::from_millis(33)) {
                     Ok(Message::Command(action, data, reply)) => {
                         let result = engine.command(&action, data);
                         if let Err(e) = &result {
@@ -106,7 +110,11 @@ impl Core {
                                 .unwrap_or(0.);
                             let eq_source = Equalizer::new(source, engine.eq.clone())
                                 .fade_in(Duration::from_millis(250));
-                            sink.append(eq_source);
+                            let tapped_source = crate::audio_spectrum::SpectrumTap::new(
+                                eq_source,
+                                engine.spectrum_state.clone(),
+                            );
+                            sink.append(tapped_source);
                             sink.set_volume(if engine.library.muted {
                                 0.
                             } else {
@@ -130,19 +138,32 @@ impl Core {
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     Err(mpsc::RecvTimeoutError::Timeout) => {}
                 }
-                if engine.sink.as_ref().is_some_and(|s| s.empty()) && !engine.loading {
-                    let before = engine.library.clone();
-                    engine.library.advance(false, true);
-                    if let Err(e) = engine
-                        .db
-                        .save(&engine.library)
-                        .and_then(|_| engine.start_track())
-                    {
-                        engine.library = before;
+                if let Some(SleepTimer::Deadline(target)) = engine.sleep_timer {
+                    if std::time::Instant::now() >= target {
+                        engine.sleep_timer = None;
                         engine.stop();
-                        engine.error = Some(e);
+                        engine.emit();
                     }
-                    engine.emit();
+                }
+                if engine.sink.as_ref().is_some_and(|s| s.empty()) && !engine.loading {
+                    if matches!(engine.sleep_timer, Some(SleepTimer::TrackEnd)) {
+                        engine.sleep_timer = None;
+                        engine.stop();
+                        engine.emit();
+                    } else {
+                        let before = engine.library.clone();
+                        engine.library.advance(false, true);
+                        if let Err(e) = engine
+                            .db
+                            .save(&engine.library)
+                            .and_then(|_| engine.start_track())
+                        {
+                            engine.library = before;
+                            engine.stop();
+                            engine.error = Some(e);
+                        }
+                        engine.emit();
+                    }
                 }
                 engine.tick();
             }
@@ -217,6 +238,12 @@ fn resolve(mut song: Song, script: &str) -> Result<(Song, Vec<u8>), String> {
     Ok((song, bytes))
 }
 
+#[derive(Clone, Debug)]
+pub enum SleepTimer {
+    Deadline(std::time::Instant),
+    TrackEnd,
+}
+
 type EventSink = Box<dyn Fn(&str, Value)>;
 struct Engine {
     emit_event: EventSink,
@@ -224,6 +251,7 @@ struct Engine {
     library: Library,
     sink: Option<Sink>,
     eq: Arc<Mutex<[f32; 10]>>,
+    spectrum_state: Arc<Mutex<crate::audio_spectrum::SpectrumState>>,
     lyrics: Lyrics,
     generation: u64,
     loading: bool,
@@ -231,6 +259,8 @@ struct Engine {
     duration: f64,
     resolve_tx: mpsc::Sender<(u64, Song, String)>,
     revision: u64,
+    sleep_timer: Option<SleepTimer>,
+    tick_counter: u32,
 }
 impl Engine {
     fn playing(&self) -> bool {
@@ -247,8 +277,19 @@ impl Engine {
     fn playback(&self) -> Value {
         let time = self.time();
         let index = self.lyrics.index(time);
+        let sleep_timer_info = match &self.sleep_timer {
+            Some(SleepTimer::Deadline(target)) => {
+                let remaining = target.saturating_duration_since(std::time::Instant::now()).as_secs();
+                json!({ "mode": "time", "remaining": remaining })
+            }
+            Some(SleepTimer::TrackEnd) => {
+                json!({ "mode": "track_end", "remaining": null })
+            }
+            None => Value::Null,
+        };
         json!({"isPlaying":self.playing(),"currentTime":time,"duration":self.duration,"loading":self.loading,"error":self.error,
-            "currentLineIndex":index,"currentLineText":self.lyrics.line(index),"currentTransText":self.lyrics.trans(index),"nextLineText":self.lyrics.line(index+1)})
+            "currentLineIndex":index,"currentLineText":self.lyrics.line(index),"currentTransText":self.lyrics.trans(index),"nextLineText":self.lyrics.line(index+1),
+            "sleepTimer": sleep_timer_info})
     }
     fn snapshot(&self) -> Value {
         json!({"revision":self.revision,"library":self.library,"playback":self.playback(),"lyricLines":self.lyrics.0.iter().map(|(_,s,_)|s).collect::<Vec<_>>(),"lyricEntries":self.lyrics.0.iter().map(|(t,s,tr)|json!({"time":t,"text":s,"trans":tr})).collect::<Vec<_>>()})
@@ -257,14 +298,29 @@ impl Engine {
         self.revision += 1;
         (self.emit_event)("core-state", self.snapshot());
     }
-    fn tick(&self) {
-        (self.emit_event)("core-playback", self.playback());
-        let index = self.lyrics.index(self.time());
-        let song = self.library.current();
-        (self.emit_event)(
-            "lyric-sync",
-            json!({"currentLine":self.lyrics.line(index),"currentTrans":self.lyrics.trans(index),"nextLine":self.lyrics.line(index+1),"isPlaying":self.playing(),"songName":song.map(|s|s.name.as_str()).unwrap_or(""),"singer":song.map(|s|s.singer.as_str()).unwrap_or("")}),
-        );
+    fn tick(&mut self) {
+        self.tick_counter = (self.tick_counter + 1) % 6;
+        if self.tick_counter == 0 {
+            (self.emit_event)("core-playback", self.playback());
+            let index = self.lyrics.index(self.time());
+            let song = self.library.current();
+            (self.emit_event)(
+                "lyric-sync",
+                json!({"currentLine":self.lyrics.line(index),"currentTrans":self.lyrics.trans(index),"nextLine":self.lyrics.line(index+1),"isPlaying":self.playing(),"songName":song.map(|s|s.name.as_str()).unwrap_or(""),"singer":song.map(|s|s.singer.as_str()).unwrap_or("")}),
+            );
+        }
+
+        if let Ok(mut spec) = self.spectrum_state.try_lock() {
+            if self.playing() {
+                let bands = spec.compute_bands();
+                (self.emit_event)("audio-spectrum", json!(&bands[..]));
+            } else {
+                let bands = spec.decay_bands();
+                if bands.iter().any(|&v| v > 0.0) {
+                    (self.emit_event)("audio-spectrum", json!(&bands[..]));
+                }
+            }
+        }
     }
     fn stop(&mut self) {
         self.generation += 1;
@@ -437,6 +493,33 @@ impl Engine {
             "script" => {
                 self.library.script = data;
             }
+            "sleep_timer" => {
+                let mode = data["mode"].as_str().unwrap_or("cancel");
+                match mode {
+                    "time" => {
+                        let minutes = data["minutes"].as_f64().unwrap_or(30.0);
+                        self.sleep_timer = Some(SleepTimer::Deadline(
+                            std::time::Instant::now() + Duration::from_secs_f64(minutes * 60.0),
+                        ));
+                    }
+                    "track_end" => {
+                        self.sleep_timer = Some(SleepTimer::TrackEnd);
+                    }
+                    _ => {
+                        self.sleep_timer = None;
+                    }
+                }
+            }
+            "get_settings" => {
+                return Ok(Value::Object(self.db.get_all_settings()?));
+            }
+            "set_setting" => {
+                let key = data["key"].as_str().ok_or("缺少配置键名")?;
+                let val = &data["value"];
+                self.db.set_setting(key, val)?;
+                (self.emit_event)("app-settings-changed", json!({ "key": key, "value": val }));
+                return Ok(json!(true));
+            }
             _ => return Err(format!("未知播放操作: {action}")),
         }
         if let Err(e) = self.db.save(&self.library) {
@@ -545,6 +628,7 @@ mod tests {
                 library: Library::default(),
                 sink: None,
                 eq: Arc::new(Mutex::new([0.; 10])),
+                spectrum_state: Arc::new(Mutex::new(crate::audio_spectrum::SpectrumState::new())),
                 lyrics: Lyrics::default(),
                 generation: 0,
                 loading: false,
@@ -552,6 +636,8 @@ mod tests {
                 duration: 0.,
                 resolve_tx: tx,
                 revision: 0,
+                sleep_timer: None,
+                tick_counter: 0,
             },
             rx,
         )
@@ -599,5 +685,21 @@ mod tests {
         let s: Song = serde_json::from_value(json!({"id":123,"pic":null,"lrc":null})).unwrap();
         assert_eq!(s.id, "123");
         assert!(s.lrc.is_empty());
+    }
+    #[test]
+    fn sleep_timer_command_sets_and_clears_state() {
+        let (mut e, _rx) = engine();
+        e.command("sleep_timer", json!({"mode": "time", "minutes": 15})).unwrap();
+        let pb = e.playback();
+        assert_eq!(pb["sleepTimer"]["mode"], "time");
+        assert!(pb["sleepTimer"]["remaining"].as_u64().unwrap() > 800);
+
+        e.command("sleep_timer", json!({"mode": "track_end"})).unwrap();
+        let pb2 = e.playback();
+        assert_eq!(pb2["sleepTimer"]["mode"], "track_end");
+
+        e.command("sleep_timer", json!({"mode": "cancel"})).unwrap();
+        let pb3 = e.playback();
+        assert!(pb3["sleepTimer"].is_null());
     }
 }

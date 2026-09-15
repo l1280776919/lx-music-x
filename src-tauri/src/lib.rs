@@ -1,5 +1,7 @@
 mod audio;
+mod audio_spectrum;
 mod core;
+mod downloader;
 mod legacy;
 mod library;
 mod lyrics;
@@ -9,6 +11,40 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager,
 };
+
+pub struct DesktopLyricState {
+    pub locked: std::sync::atomic::AtomicBool,
+}
+
+#[tauri::command]
+fn get_desktop_lyric_locked(state: tauri::State<'_, DesktopLyricState>) -> bool {
+    state.locked.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[tauri::command]
+fn toggle_desktop_lyric_lock(
+    app: AppHandle,
+    state: tauri::State<'_, DesktopLyricState>,
+    locked: Option<bool>,
+) -> Result<bool, String> {
+    let new_locked = match locked {
+        Some(v) => {
+            state.locked.store(v, std::sync::atomic::Ordering::SeqCst);
+            v
+        }
+        None => {
+            let prev = state.locked.fetch_xor(true, std::sync::atomic::Ordering::SeqCst);
+            !prev
+        }
+    };
+    if let Some(window) = app.get_webview_window("lyric") {
+        window
+            .set_ignore_cursor_events(new_locked)
+            .map_err(|e| e.to_string())?;
+    }
+    let _ = app.emit("desktop-lyric-lock-change", new_locked);
+    Ok(new_locked)
+}
 
 #[tauri::command]
 fn toggle_desktop_lyric(app: AppHandle, visible: bool) -> Result<(), String> {
@@ -24,12 +60,12 @@ fn toggle_desktop_lyric(app: AppHandle, visible: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn set_lyric_ignore_mouse(app: AppHandle, ignore: bool) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("lyric") {
-        window
-            .set_ignore_cursor_events(ignore)
-            .map_err(|e| e.to_string())?;
-    }
+fn set_lyric_ignore_mouse(
+    app: AppHandle,
+    state: tauri::State<'_, DesktopLyricState>,
+    ignore: bool,
+) -> Result<(), String> {
+    toggle_desktop_lyric_lock(app, state, Some(ignore))?;
     Ok(())
 }
 
@@ -115,6 +151,77 @@ async fn scan_local_directory(dir_path: String) -> Result<Vec<LocalTrack>, Strin
     tauri::async_runtime::spawn_blocking(move || scan_local_files(dir_path))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn scan_and_import_local_directory(
+    core: tauri::State<'_, core::Core>,
+    dir_path: String,
+) -> Result<Vec<LocalTrack>, String> {
+    let tracks = tauri::async_runtime::spawn_blocking(move || scan_local_files(dir_path))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    let songs: Vec<library::Song> = tracks
+        .iter()
+        .map(|t| library::Song {
+            id: t.id.clone(),
+            name: t.name.clone(),
+            singer: t.singer.clone(),
+            album: t.album.clone(),
+            path: t.path.clone(),
+            source: "local".into(),
+            interval: t.interval.clone(),
+            ..Default::default()
+        })
+        .collect();
+
+    core.command(
+        "library".into(),
+        serde_json::json!({
+            "action": "local",
+            "data": {
+                "listId": "local",
+                "songs": songs
+            }
+        }),
+    )?;
+
+    Ok(tracks)
+}
+
+#[tauri::command]
+fn get_app_settings(core: tauri::State<'_, core::Core>) -> Result<serde_json::Value, String> {
+    core.command("get_settings".into(), serde_json::Value::Null)
+}
+
+#[tauri::command]
+fn save_app_setting(
+    core: tauri::State<'_, core::Core>,
+    key: String,
+    value: serde_json::Value,
+) -> Result<(), String> {
+    core.command(
+        "set_setting".into(),
+        serde_json::json!({ "key": key, "value": value }),
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+fn download_songs(
+    app: AppHandle,
+    download_mgr: tauri::State<'_, downloader::DownloadManager>,
+    songs: Vec<library::Song>,
+) -> Vec<downloader::DownloadTask> {
+    download_mgr.add_tasks(&app, songs)
+}
+
+#[tauri::command]
+fn get_download_tasks(
+    download_mgr: tauri::State<'_, downloader::DownloadManager>,
+) -> Vec<downloader::DownloadTask> {
+    download_mgr.get_tasks()
 }
 
 #[tauri::command]
@@ -243,10 +350,14 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?.join("lx-music-x");
             std::fs::create_dir_all(&data_dir)?;
-            app.manage(
-                core::Core::start(app.handle().clone(), data_dir.join("library.sqlite3"))
-                    .map_err(std::io::Error::other)?,
-            );
+            let core_inst = core::Core::start(app.handle().clone(), data_dir.join("library.sqlite3"))
+                .map_err(std::io::Error::other)?;
+            let download_mgr = downloader::DownloadManager::new(app.handle().clone(), core_inst.clone());
+            app.manage(core_inst);
+            app.manage(download_mgr);
+            app.manage(DesktopLyricState {
+                locked: std::sync::atomic::AtomicBool::new(false),
+            });
 
             // Webviews can invoke commands as soon as they load. Register Core first.
             for config in &app.config().app.windows {
@@ -319,7 +430,14 @@ pub fn run() {
                         }
                     }
                     "toggle_lyric_ignore" => {
-                        let _ = app.emit("tray-toggle-lyric-ignore", ());
+                        if let Some(state) = app.try_state::<DesktopLyricState>() {
+                            let prev = state.locked.fetch_xor(true, std::sync::atomic::Ordering::SeqCst);
+                            let new_locked = !prev;
+                            if let Some(window) = app.get_webview_window("lyric") {
+                                let _ = window.set_ignore_cursor_events(new_locked);
+                            }
+                            let _ = app.emit("desktop-lyric-lock-change", new_locked);
+                        }
                     }
                     "show_app" => {
                         if let Some(window) = app.get_webview_window("main") {
@@ -363,10 +481,17 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             toggle_desktop_lyric,
             set_lyric_ignore_mouse,
+            get_desktop_lyric_locked,
+            toggle_desktop_lyric_lock,
             get_system_info,
             legacy::scan_and_import_legacy_data,
             scan_local_directory,
+            scan_and_import_local_directory,
             download_online_song,
+            download_songs,
+            get_download_tasks,
+            get_app_settings,
+            save_app_setting,
             core::core_command,
             core::online_command,
             core::user_api_command

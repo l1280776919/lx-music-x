@@ -155,7 +155,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Music2, SkipBack, SkipForward, Play, Pause, Lock, Unlock, X } from 'lucide-vue-next'
-import { setDesktopLyricIgnoreMouse, toggleDesktopLyricWindow, listenLyricSync, emitPlayerControl, LyricSyncPayload } from '@/core/tauriBridge'
+import {
+  toggleDesktopLyricLock,
+  getDesktopLyricLocked,
+  getAppSettings,
+  saveAppSetting,
+  toggleDesktopLyricWindow,
+  listenLyricSync,
+  emitPlayerControl,
+  LyricSyncPayload,
+  isTauri
+} from '@/core/tauriBridge'
 import { listen, emit, UnlistenFn } from '@tauri-apps/api/event'
 import { initializeBackend } from '@/core/backend'
 
@@ -182,34 +192,55 @@ const songInfo = ref('LX Music X 桌面歌词')
 const hasTransToDisplay = computed(() => showTrans.value && !!currentTrans.value.trim())
 
 let unlistenSync: UnlistenFn | undefined
-let unlistenIgnore: UnlistenFn | undefined
+let unlistenLock: UnlistenFn | undefined
+let unlistenSettings: UnlistenFn | undefined
+
+function applyLyricSettings(cfg: any) {
+  if (typeof cfg?.fontSize === 'number') fontSize.value = cfg.fontSize
+  if (typeof cfg?.isDualLine === 'boolean') isDualLine.value = cfg.isDualLine
+  if (typeof cfg?.showTrans === 'boolean') showTrans.value = cfg.showTrans
+}
+
+function persistSettings() {
+  const payload = {
+    fontSize: fontSize.value,
+    isDualLine: isDualLine.value,
+    showTrans: showTrans.value,
+  }
+  localStorage.setItem(FONT_SIZE_KEY, String(fontSize.value))
+  localStorage.setItem(DUAL_LINE_KEY, String(isDualLine.value))
+  localStorage.setItem(SHOW_TRANS_KEY, String(showTrans.value))
+  if (isTauri()) {
+    saveAppSetting('lyric', payload)
+  }
+}
 
 async function toggleLockState() {
-  isLocked.value = !isLocked.value
+  const newLocked = await toggleDesktopLyricLock()
+  isLocked.value = newLocked
   isHovered.value = false
-  lockToastMessage.value = isLocked.value
+  lockToastMessage.value = newLocked
     ? '已锁定鼠标穿透 · 可通过托盘菜单解锁'
     : '已解除鼠标穿透 · 恢复鼠标交互'
   showLockToast.value = true
   setTimeout(() => {
     showLockToast.value = false
   }, 2500)
-  await setDesktopLyricIgnoreMouse(isLocked.value)
 }
 
 function changeFontSize(delta: number) {
   fontSize.value = Math.max(16, Math.min(38, fontSize.value + delta))
-  localStorage.setItem(FONT_SIZE_KEY, String(fontSize.value))
+  persistSettings()
 }
 
 function toggleDualLine() {
   isDualLine.value = !isDualLine.value
-  localStorage.setItem(DUAL_LINE_KEY, String(isDualLine.value))
+  persistSettings()
 }
 
 function toggleTrans() {
   showTrans.value = !showTrans.value
-  localStorage.setItem(SHOW_TRANS_KEY, String(showTrans.value))
+  persistSettings()
 }
 
 function handleMouseEnter() {
@@ -238,6 +269,36 @@ function controlAction(action: 'toggle-play' | 'prev' | 'next') {
 }
 
 onMounted(async () => {
+  // 从后端获取当前真实的锁定状态
+  if (isTauri()) {
+    isLocked.value = await getDesktopLyricLocked()
+
+    getAppSettings().then((settings) => {
+      if (settings?.lyric) {
+        applyLyricSettings(settings.lyric)
+      }
+    })
+
+    unlistenSettings = await listen<{ key: string; value: any }>('app-settings-changed', (e) => {
+      if (e.payload.key === 'lyric' && e.payload.value) {
+        applyLyricSettings(e.payload.value)
+      }
+    })
+
+    // 统一监听来自 Rust 后端（托盘或自身）广播的锁定变更事件
+    unlistenLock = await listen<boolean>('desktop-lyric-lock-change', (e) => {
+      isLocked.value = e.payload
+      isHovered.value = false
+      lockToastMessage.value = e.payload
+        ? '已锁定鼠标穿透 · 可通过托盘菜单解锁'
+        : '已解除鼠标穿透 · 恢复鼠标交互'
+      showLockToast.value = true
+      setTimeout(() => {
+        showLockToast.value = false
+      }, 2500)
+    })
+  }
+
   // 监听主窗口广播的歌词数据
   unlistenSync = await listenLyricSync((payload: LyricSyncPayload) => {
     if (payload.currentLine) currentLine.value = payload.currentLine
@@ -247,15 +308,6 @@ onMounted(async () => {
     songInfo.value = `${payload.songName} - ${payload.singer}`
   })
 
-  // 监听托盘快捷键穿透锁定切换
-  try {
-    unlistenIgnore = await listen('tray-toggle-lyric-ignore', async () => {
-      await toggleLockState()
-    })
-  } catch (e) {
-    console.warn('Failed to listen tray-toggle-lyric-ignore:', e)
-  }
-
   // 初始化后端连接，以便直接捕获 playback 事件
   try {
     await initializeBackend()
@@ -264,7 +316,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   unlistenSync?.()
-  unlistenIgnore?.()
+  unlistenLock?.()
+  unlistenSettings?.()
 })
 </script>
 

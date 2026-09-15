@@ -40,6 +40,36 @@ export async function setDesktopLyricIgnoreMouse(ignore: boolean): Promise<void>
 }
 
 /**
+ * 切换或设置桌面歌词穿透锁定状态（Rust 后端单例驱动）
+ */
+export async function toggleDesktopLyricLock(locked?: boolean): Promise<boolean> {
+  if (!isTauri()) {
+    return false
+  }
+  try {
+    return await invoke<boolean>('toggle_desktop_lyric_lock', { locked })
+  } catch (err) {
+    console.error('Failed to toggle desktop lyric lock:', err)
+    return false
+  }
+}
+
+/**
+ * 获取当前桌面歌词是否处于锁定鼠标穿透状态
+ */
+export async function getDesktopLyricLocked(): Promise<boolean> {
+  if (!isTauri()) {
+    return false
+  }
+  try {
+    return await invoke<boolean>('get_desktop_lyric_locked')
+  } catch (err) {
+    console.error('Failed to get desktop lyric locked state:', err)
+    return false
+  }
+}
+
+/**
  * 获取系统与架构信息
  */
 export async function getSystemInfo(): Promise<{
@@ -227,6 +257,92 @@ export async function scanLocalMusic(dirPath: string): Promise<LocalTrackItem[]>
   } catch (err) {
     console.error('Failed to scan local directory:', err)
     throw err
+  }
+}
+
+/**
+ * 原生 Rust 快速递归扫描本地音乐并由后端直接原子入库
+ */
+export async function scanAndImportLocalDirectory(dirPath: string): Promise<LocalTrackItem[]> {
+  if (!isTauri()) {
+    return []
+  }
+  try {
+    return await invoke<LocalTrackItem[]>('scan_and_import_local_directory', { dirPath })
+  } catch (err) {
+    console.error('Failed to scan and import local directory:', err)
+    throw err
+  }
+}
+
+export interface DownloadTaskItem {
+  id: string
+  songId: string
+  name: string
+  singer: string
+  album: string
+  status: 'pending' | 'downloading' | 'completed' | 'error' | 'skipped'
+  progress: number
+  error?: string | null
+  filePath?: string | null
+}
+
+/**
+ * 批量提交歌曲下载任务（Rust 后端自动处理排队、下载与入库）
+ */
+export async function downloadSongs(songs: any[]): Promise<DownloadTaskItem[]> {
+  if (!isTauri()) {
+    return []
+  }
+  try {
+    return await invoke<DownloadTaskItem[]>('download_songs', { songs })
+  } catch (err) {
+    console.error('Failed to submit download tasks:', err)
+    throw err
+  }
+}
+
+/**
+ * 获取后端下载任务列表
+ */
+export async function getDownloadTasks(): Promise<DownloadTaskItem[]> {
+  if (!isTauri()) {
+    return []
+  }
+  try {
+    return await invoke<DownloadTaskItem[]>('get_download_tasks')
+  } catch (err) {
+    console.error('Failed to get download tasks:', err)
+    return []
+  }
+}
+
+/**
+ * 从后端 SQLite 获取持久化配置
+ */
+export async function getAppSettings(): Promise<Record<string, any>> {
+  if (!isTauri()) {
+    return {}
+  }
+  try {
+    return await invoke<Record<string, any>>('get_app_settings')
+  } catch (err) {
+    console.error('Failed to get app settings:', err)
+    return {}
+  }
+}
+
+/**
+ * 持久化配置至后端 SQLite，并广播同步
+ */
+export async function saveAppSetting(key: string, value: any): Promise<void> {
+  if (!isTauri()) {
+    return
+  }
+  try {
+    await invoke('save_app_setting', { key, value })
+  } catch (err) {
+    console.error('Failed to save app setting:', err)
   }
 }
 

@@ -112,10 +112,27 @@ fn detect() -> Result<ImportResult, String> {
     })
 }
 #[tauri::command]
-pub async fn scan_and_import_legacy_data() -> Result<ImportResult, String> {
-    tauri::async_runtime::spawn_blocking(detect)
+pub async fn scan_and_import_legacy_data(
+    core: tauri::State<'_, crate::core::Core>,
+) -> Result<ImportResult, String> {
+    let res = tauri::async_runtime::spawn_blocking(detect)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())??;
+
+    if res.found && !res.playlists.is_empty() {
+        let lists_val = serde_json::to_value(&res.playlists).map_err(|e| e.to_string())?;
+        core.command(
+            "library".into(),
+            json!({
+                "action": "import",
+                "data": {
+                    "playlists": lists_val
+                }
+            }),
+        )?;
+    }
+
+    Ok(res)
 }
 
 #[cfg(test)]

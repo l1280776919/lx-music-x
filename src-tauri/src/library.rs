@@ -187,6 +187,38 @@ impl Library {
                 self.playlists.push(p);
                 Ok(result)
             }
+            "create_with_songs" => {
+                let name = data["name"].as_str().unwrap_or("").trim();
+                if name.is_empty() {
+                    return Err("歌单名称不能为空".into());
+                }
+                let songs: Vec<Song> = serde_json::from_value(data["songs"].clone())
+                    .map_err(|e| e.to_string())?;
+                let p = Playlist {
+                    id: format!("list_{:032x}", rand::random::<u128>()),
+                    name: name.into(),
+                    songs,
+                    is_custom: true,
+                };
+                let result = json!(p);
+                self.playlists.push(p);
+                Ok(result)
+            }
+            "batch_favorite" => {
+                let songs: Vec<Song> = serde_json::from_value(data["songs"].clone())
+                    .map_err(|e| e.to_string())?;
+                let fav = self
+                    .playlists
+                    .iter_mut()
+                    .find(|p| p.id == "fav")
+                    .ok_or("收藏歌单不存在")?;
+                for song in songs {
+                    if !song.id.is_empty() && !fav.songs.iter().any(|s| s.same(&song)) {
+                        fav.songs.insert(0, song);
+                    }
+                }
+                Ok(json!(true))
+            }
             "delete" => {
                 if ["fav", "local", "history"].contains(&list_id) {
                     return Err("不能删除内置歌单".into());
@@ -317,7 +349,11 @@ pub struct Database(Connection);
 impl Database {
     pub fn open(path: &Path) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
-        conn.execute_batch("PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);").map_err(|e| e.to_string())?;
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
+        ).map_err(|e| e.to_string())?;
         Ok(Self(conn))
     }
     pub fn load(&self) -> Result<Library, String> {
@@ -338,6 +374,28 @@ impl Database {
     pub fn save(&self, library: &Library) -> Result<(), String> {
         let data = serde_json::to_string(library).map_err(|e| e.to_string())?;
         self.0.execute("INSERT INTO app_state(id,data) VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET data=excluded.data", [data]).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    pub fn get_all_settings(&self) -> Result<serde_json::Map<String, Value>, String> {
+        let mut stmt = self.0.prepare("SELECT key, value FROM settings").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }).map_err(|e| e.to_string())?;
+        let mut map = serde_json::Map::new();
+        for r in rows {
+            if let Ok((k, v_str)) = r {
+                let val: Value = serde_json::from_str(&v_str).unwrap_or(Value::String(v_str));
+                map.insert(k, val);
+            }
+        }
+        Ok(map)
+    }
+    pub fn set_setting(&self, key: &str, value: &Value) -> Result<(), String> {
+        let val_str = serde_json::to_string(value).map_err(|e| e.to_string())?;
+        self.0.execute(
+            "INSERT INTO settings(key, value) VALUES(?1, ?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            rusqlite::params![key, val_str],
+        ).map_err(|e| e.to_string())?;
         Ok(())
     }
 }
@@ -442,5 +500,30 @@ mod tests {
         assert_eq!(hist.songs.len(), 2);
         assert_eq!(hist.songs[0].id, "s1");
         assert_eq!(hist.songs[1].id, "s2");
+    }
+    #[test]
+    fn batch_favorite_and_create_with_songs() {
+        let mut l = Library::default();
+        let song = Song {
+            id: "s1".into(),
+            source: "tx".into(),
+            name: "Song 1".into(),
+            ..Song::default()
+        };
+        l.edit("batch_favorite", json!({ "songs": [song.clone(), song.clone()] })).unwrap();
+        let fav = l.playlists.iter().find(|p| p.id == "fav").unwrap();
+        assert_eq!(fav.songs.len(), 1);
+        assert_eq!(fav.songs[0].id, "s1");
+
+        let p_res = l.edit("create_with_songs", json!({ "name": "My List", "songs": [song] })).unwrap();
+        assert_eq!(p_res["name"], "My List");
+        assert_eq!(p_res["songs"].as_array().unwrap().len(), 1);
+    }
+    #[test]
+    fn database_settings_crud() {
+        let db = Database::open(Path::new(":memory:")).unwrap();
+        db.set_setting("theme", &json!({"selectedPresetId": "cyberpunk"})).unwrap();
+        let all = db.get_all_settings().unwrap();
+        assert_eq!(all["theme"]["selectedPresetId"], "cyberpunk");
     }
 }

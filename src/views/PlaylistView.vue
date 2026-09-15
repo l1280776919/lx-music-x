@@ -490,7 +490,7 @@ import {
 } from 'lucide-vue-next'
 import { usePlayerStore, MusicItem } from '@/store/player'
 import { usePlaylistStore } from '@/store/playlist'
-import { scanAndImportLegacyData, openFolderPicker, scanLocalMusic } from '@/core/tauriBridge'
+import { scanAndImportLegacyData, openFolderPicker, scanAndImportLocalDirectory } from '@/core/tauriBridge'
 import ImportPlaylistModal from '@/components/ImportPlaylistModal.vue'
 
 const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2338bdf8"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
@@ -574,13 +574,13 @@ async function handleScanLocalMusic() {
   try {
     const dir = await openFolderPicker()
     if (!dir) return
-    const tracks = await scanLocalMusic(dir)
+    const tracks = await scanAndImportLocalDirectory(dir)
     if (!tracks || tracks.length === 0) {
       alert('所选目录中未发现音频文件 (支持 .mp3/.flac/.wav/.m4a/.ogg 等)')
       return
     }
-    await playlistStore.setLocalSongs(tracks)
     selectedListId.value = 'local'
+    alert(`成功扫描并自动导入 ${tracks.length} 首本地歌曲！`)
   } catch (err: any) {
     alert(`扫描本地音乐失败: ${err?.message || err}`)
   }
@@ -591,7 +591,6 @@ async function handleImportLegacy() {
   try {
     const res = await scanAndImportLegacyData()
     if (res.found) {
-      await playlistStore.importLegacyPlaylists(res.playlists)
       importStatusText.value = `✓ 导入成功 (${res.total_songs}首)`
       alert(`成功识别原版数据库！已导入 ${res.playlists.length} 个歌单，共 ${res.total_songs} 首歌曲。`)
     } else {
@@ -687,10 +686,8 @@ function addSelectedBatchToQueue() {
 
 async function favoriteSelectedBatch() {
   const songs = getSelectedSongs()
-  for (const s of songs) {
-    if (!playerStore.isFavorite(s.id)) {
-      await playerStore.toggleFavorite(s)
-    }
+  if (songs.length) {
+    await playlistStore.batchFavorite(songs)
   }
   selectedSongIds.value.clear()
 }
@@ -714,8 +711,8 @@ async function handleDownload(song: MusicItem) {
   if (downloadingSongIds.value.has(song.id) || isSongDownloaded(song)) return
   downloadingSongIds.value.add(song.id)
   try {
-    const path = await playlistStore.downloadSong(song)
-    alert(`《${song.name}》已成功下载并存入本地音乐库！\n路径: ${path}`)
+    await playlistStore.downloadSong(song)
+    alert(`《${song.name}》已提交后台下载，完成后将自动存入本地音乐库！`)
   } catch (err: any) {
     alert(`下载失败: ${err?.message || err}`)
   } finally {
@@ -727,18 +724,15 @@ async function downloadSelectedBatch() {
   const songs = getSelectedSongs()
   if (!songs.length || isBatchDownloading.value) return
   isBatchDownloading.value = true
-  let successCount = 0
-  for (const s of songs) {
-    try {
-      await playlistStore.downloadSong(s)
-      successCount++
-    } catch (e) {
-      console.warn(`Download failed for ${s.name}:`, e)
-    }
+  try {
+    await playlistStore.downloadSongs(songs)
+    selectedSongIds.value.clear()
+    alert(`已将 ${songs.length} 首歌曲加入后台下载队列，完成后自动存入本地音乐库！`)
+  } catch (e: any) {
+    alert(`批量下载提交失败: ${e?.message || e}`)
+  } finally {
+    isBatchDownloading.value = false
   }
-  isBatchDownloading.value = false
-  selectedSongIds.value.clear()
-  alert(`批量下载完成：成功 ${successCount} / ${songs.length} 首，已保存到下载目录并同步到本地音乐。`)
 }
 
 // 歌曲拖拽重排交互

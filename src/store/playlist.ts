@@ -4,8 +4,7 @@ import type { MusicItem } from './player'
 import type { ImportedPlaylist } from '@/core/tauriBridge'
 import { backendState, backendCommand, sendCommand } from '@/core/backend'
 
-import { invoke } from '@tauri-apps/api/core'
-import { isTauri } from '@/core/tauriBridge'
+import { isTauri, downloadSongs as downloadSongsBridge } from '@/core/tauriBridge'
 
 export interface PlaylistGroup {
   id: string; name: string; songs: MusicItem[]; isCustom?: boolean; description?: string; cover?: string;
@@ -18,7 +17,9 @@ export const usePlaylistStore = defineStore('playlist', () => {
     customLists, favoriteIds,
     isFavorite: (id: string) => favoriteIds.value.has(id),
     toggleFavorite: (song: MusicItem) => sendCommand('library', { action: 'favorite', data: { song } }),
+    batchFavorite: (songs: MusicItem[]) => sendCommand('library', { action: 'batch_favorite', data: { songs } }),
     createPlaylist: (name: string) => edit<PlaylistGroup>('create', { name }),
+    createPlaylistWithSongs: (name: string, songs: MusicItem[]) => edit<PlaylistGroup>('create_with_songs', { name, songs }),
     removePlaylist: (listId: string) => edit('delete', { listId }),
     renamePlaylist: (listId: string, name: string) => edit('rename', { listId, name }),
     addSongToList: (listId: string, song: MusicItem) => edit('add', { listId, song }),
@@ -30,21 +31,14 @@ export const usePlaylistStore = defineStore('playlist', () => {
     clearPlaylist: (listId: string) => edit('clear', { listId }),
     setLocalSongs: (songs: MusicItem[]) => edit('local', { listId: 'local', songs }),
     importLegacyPlaylists: (playlists: ImportedPlaylist[]) => edit('import', { playlists }),
+    downloadSongs: async (songs: MusicItem[]) => {
+      if (!isTauri()) throw new Error('网页预览环境不支持本地文件下载')
+      return await downloadSongsBridge(songs)
+    },
     downloadSong: async (song: MusicItem) => {
       if (!isTauri()) throw new Error('网页预览环境不支持本地文件下载')
-      const filePath = await invoke<string>('download_online_song', { song })
-      const localItem: MusicItem = {
-        id: `local_${filePath}`,
-        name: song.name,
-        singer: song.singer,
-        album: song.album || '本地下载',
-        path: filePath,
-        source: 'local',
-        pic: song.pic,
-        lrc: song.lrc,
-      }
-      await edit('add', { listId: 'local', song: localItem })
-      return filePath
+      const tasks = await downloadSongsBridge([song])
+      return tasks[0]?.filePath || song.name
     },
   }
 })

@@ -175,9 +175,8 @@ async function handleImport() {
   if (!parsedDetail.value || !parsedDetail.value.songs.length) return
   isImporting.value = true
   try {
-    const newPlaylist = await playlistStore.createPlaylist(parsedDetail.value.name)
+    const newPlaylist = await playlistStore.createPlaylistWithSongs(parsedDetail.value.name, parsedDetail.value.songs)
     if (newPlaylist && newPlaylist.id) {
-      await playlistStore.batchAddSongs(newPlaylist.id, parsedDetail.value.songs)
       emit('imported', newPlaylist.id)
       emit('update:modelValue', false)
       inputUrl.value = ''

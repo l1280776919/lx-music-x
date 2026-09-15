@@ -42,6 +42,9 @@ export const PRESET_WALLPAPERS: WallpaperPreset[] = [
   },
 ]
 
+import { getAppSettings, saveAppSetting, isTauri } from '@/core/tauriBridge'
+import { listen } from '@tauri-apps/api/event'
+
 const STORAGE_KEY = 'lx_theme_config'
 const CUSTOM_BG_KEY = 'lx_custom_wallpaper_data'
 
@@ -64,21 +67,47 @@ export const useThemeStore = defineStore('theme', () => {
   const showTranslation = ref<boolean>(savedConfig.showTranslation !== false)
   const customWallpaperData = ref<string>(localStorage.getItem(CUSTOM_BG_KEY) || '')
 
+  // Load from backend SQLite on init
+  if (isTauri()) {
+    getAppSettings().then((settings) => {
+      if (settings?.theme) {
+        applyConfig(settings.theme)
+      }
+    })
+
+    listen<{ key: string; value: any }>('app-settings-changed', (e) => {
+      if (e.payload.key === 'theme' && e.payload.value) {
+        applyConfig(e.payload.value)
+      }
+    })
+  }
+
+  function applyConfig(cfg: any) {
+    if (cfg.wallpaperType) wallpaperType.value = cfg.wallpaperType
+    if (cfg.selectedPresetId) selectedPresetId.value = cfg.selectedPresetId
+    if (typeof cfg.wallpaperBlur === 'number') wallpaperBlur.value = cfg.wallpaperBlur
+    if (typeof cfg.wallpaperDarkness === 'number') wallpaperDarkness.value = cfg.wallpaperDarkness
+    if (typeof cfg.showTranslation === 'boolean') showTranslation.value = cfg.showTranslation
+    if (typeof cfg.customWallpaperData === 'string') customWallpaperData.value = cfg.customWallpaperData
+  }
+
   // Save changes
   function persist() {
+    const payload = {
+      wallpaperType: wallpaperType.value,
+      selectedPresetId: selectedPresetId.value,
+      wallpaperBlur: wallpaperBlur.value,
+      wallpaperDarkness: wallpaperDarkness.value,
+      showTranslation: showTranslation.value,
+      customWallpaperData: customWallpaperData.value,
+    }
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          wallpaperType: wallpaperType.value,
-          selectedPresetId: selectedPresetId.value,
-          wallpaperBlur: wallpaperBlur.value,
-          wallpaperDarkness: wallpaperDarkness.value,
-          showTranslation: showTranslation.value,
-        }),
-      )
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     } catch (e) {
-      console.warn('Failed to persist theme settings:', e)
+      console.warn('Failed to persist theme settings to localStorage:', e)
+    }
+    if (isTauri()) {
+      saveAppSetting('theme', payload)
     }
   }
 

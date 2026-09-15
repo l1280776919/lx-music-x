@@ -18,52 +18,25 @@ export const usePlayerStore = defineStore('player', () => {
   const isQueueOpen = ref(false)
   const isDesktopLyricOpen = ref(false)
   const isSleepTimerOpen = ref(false)
-  const sleepTimerRemaining = ref<number | null>(null)
-  const sleepTimerMode = ref<'time' | 'track_end' | null>(null)
-  let sleepTimerInterval: any = null
+  const sleepTimerRemaining = computed<number | null>(() => {
+    const info = (state.playback as any)?.sleepTimer
+    return (info && info.mode === 'time' && typeof info.remaining === 'number') ? info.remaining : null
+  })
+  const sleepTimerMode = computed<'time' | 'track_end' | null>(() => {
+    const info = (state.playback as any)?.sleepTimer
+    return (info && info.mode) ? info.mode : null
+  })
 
   function cancelSleepTimer() {
-    if (sleepTimerInterval) {
-      clearInterval(sleepTimerInterval)
-      sleepTimerInterval = null
-    }
-    sleepTimerRemaining.value = null
-    sleepTimerMode.value = null
+    sendCommand('sleep_timer', { mode: 'cancel' })
   }
 
   function setSleepTimer(minutes: number) {
-    cancelSleepTimer()
-    sleepTimerMode.value = 'time'
-    sleepTimerRemaining.value = Math.round(minutes * 60)
-
-    sleepTimerInterval = setInterval(() => {
-      if (sleepTimerRemaining.value === null) {
-        cancelSleepTimer()
-        return
-      }
-      sleepTimerRemaining.value--
-      if (sleepTimerRemaining.value <= 0) {
-        cancelSleepTimer()
-        if (state.playback.isPlaying) {
-          sendCommand('toggle')
-        }
-      }
-    }, 1000)
+    sendCommand('sleep_timer', { mode: 'time', minutes })
   }
 
   function setSleepTimerTrackEnd() {
-    cancelSleepTimer()
-    sleepTimerMode.value = 'track_end'
-    const songId = currentMusic.value?.id || ''
-    const unwatch = watch(() => currentMusic.value?.id, (newId) => {
-      if (sleepTimerMode.value === 'track_end' && newId !== songId) {
-        cancelSleepTimer()
-        if (state.playback.isPlaying) {
-          sendCommand('toggle')
-        }
-        unwatch()
-      }
-    })
+    sendCommand('sleep_timer', { mode: 'track_end' })
   }
 
   return {
