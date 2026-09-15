@@ -1,6 +1,10 @@
 import { defineConfig, presetUno, presetAttributify, presetIcons } from 'unocss'
 
 export default defineConfig({
+  content: {
+    // Scan source files directly so dev startup includes every Vue component.
+    filesystem: ['src/**/*.{vue,ts}', 'index.html'],
+  },
   presets: [
     presetUno(),
     presetAttributify(),
