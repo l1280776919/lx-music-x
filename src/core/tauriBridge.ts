@@ -354,3 +354,64 @@ export function convertLocalAudioSrc(filePath: string): string {
   return convertFileSrc(filePath)
 }
 
+export interface WebdavConfig {
+  endpoint: string
+  username: string
+  password: string
+  remotePath?: string
+}
+
+export interface SyncResult {
+  success: boolean
+  strategy: string
+  timestamp: number
+  playlistCount: number
+  songCount: number
+  message: string
+}
+
+/**
+ * 测试 WebDAV 账户与服务器连接状态
+ */
+export async function testWebdavConnection(config: WebdavConfig): Promise<boolean> {
+  if (!isTauri()) return true
+  return await invoke<boolean>('test_webdav_connection', { config })
+}
+
+/**
+ * 获取持久化的 WebDAV 配置
+ */
+export async function getWebdavConfig(): Promise<WebdavConfig | null> {
+  if (!isTauri()) return null
+  return await invoke<WebdavConfig | null>('get_webdav_config')
+}
+
+/**
+ * 保存 WebDAV 配置
+ */
+export async function saveWebdavConfig(config: WebdavConfig): Promise<void> {
+  if (!isTauri()) return
+  await invoke('save_webdav_config', { config })
+}
+
+/**
+ * 执行 WebDAV 元数据同步（智能合并、上传覆盖、下载恢复）
+ */
+export async function syncWebdavData(
+  config: WebdavConfig,
+  strategy: 'smart' | 'upload_overwrite' | 'download_overwrite' | 'merge'
+): Promise<SyncResult> {
+  if (!isTauri()) {
+    return {
+      success: true,
+      strategy,
+      timestamp: Date.now(),
+      playlistCount: 0,
+      songCount: 0,
+      message: 'Web 演示模式无实际同步',
+    }
+  }
+  return await invoke<SyncResult>('sync_webdav_data', { config, strategy })
+}
+
+

@@ -520,6 +520,50 @@ impl Engine {
                 (self.emit_event)("app-settings-changed", json!({ "key": key, "value": val }));
                 return Ok(json!(true));
             }
+            "export_sync_package" => {
+                let settings = self.db.get_all_settings()?;
+                let (pkg, compressed) = crate::sync::create_sync_package(&self.library, settings)?;
+                return Ok(json!({
+                    "package": pkg,
+                    "compressed": compressed,
+                }));
+            }
+            "apply_sync_package" => {
+                let pkg: crate::sync::SyncPackage = serde_json::from_value(data["package"].clone())
+                    .map_err(|e| format!("同步包结构无效: {e}"))?;
+                let mode = data["mode"].as_str().unwrap_or("merge");
+                let mut added_playlists = 0;
+                let mut added_songs = 0;
+
+                if mode == "overwrite" {
+                    self.library.playlists = pkg.payload.playlists;
+                    self.library.normalize();
+                } else {
+                    let (ap, as_) = crate::sync::merge_playlists(&mut self.library.playlists, pkg.payload.playlists);
+                    added_playlists = ap;
+                    added_songs = as_;
+                    self.library.normalize();
+                }
+
+                for (k, v) in pkg.payload.settings {
+                    let _ = self.db.set_setting(&k, &v);
+                    (self.emit_event)("app-settings-changed", json!({ "key": k, "value": v }));
+                }
+
+                if !pkg.payload.script.is_null() {
+                    self.library.script = pkg.payload.script;
+                }
+
+                self.db.save(&self.library)?;
+                (self.emit_event)("library-changed", json!({}));
+
+                return Ok(json!({
+                    "addedPlaylists": added_playlists,
+                    "addedSongs": added_songs,
+                    "totalPlaylists": self.library.playlists.len(),
+                    "totalSongs": self.library.playlists.iter().map(|p| p.songs.len()).sum::<usize>(),
+                }));
+            }
             _ => return Err(format!("未知播放操作: {action}")),
         }
         if let Err(e) = self.db.save(&self.library) {

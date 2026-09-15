@@ -6,6 +6,7 @@ mod legacy;
 mod library;
 mod lyrics;
 mod online;
+mod sync;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -206,6 +207,190 @@ fn save_app_setting(
         serde_json::json!({ "key": key, "value": value }),
     )?;
     Ok(())
+}
+
+#[tauri::command]
+async fn test_webdav_connection(config: sync::WebdavConfig) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = sync::WebdavClient::new(config)?;
+        client.test_connection().map(|_| true)
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {e}"))?
+}
+
+#[tauri::command]
+fn get_webdav_config(core: tauri::State<'_, core::Core>) -> Result<Option<sync::WebdavConfig>, String> {
+    let settings = core.command("get_settings".into(), serde_json::Value::Null)?;
+    if let Some(val) = settings.get("webdav_config") {
+        if let Ok(cfg) = serde_json::from_value::<sync::WebdavConfig>(val.clone()) {
+            return Ok(Some(cfg));
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+fn save_webdav_config(
+    core: tauri::State<'_, core::Core>,
+    config: sync::WebdavConfig,
+) -> Result<(), String> {
+    let val = serde_json::to_value(config).map_err(|e| e.to_string())?;
+    core.command(
+        "set_setting".into(),
+        serde_json::json!({
+            "key": "webdav_config",
+            "value": val
+        }),
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn sync_webdav_data(
+    core: tauri::State<'_, core::Core>,
+    config: sync::WebdavConfig,
+    strategy: String,
+) -> Result<sync::SyncResult, String> {
+    let core = core.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = sync::WebdavClient::new(config.clone())?;
+
+        match strategy.as_str() {
+            "upload_overwrite" => {
+                let export_res = core.command("export_sync_package".into(), serde_json::Value::Null)?;
+                let compressed: Vec<u8> = serde_json::from_value(export_res["compressed"].clone())
+                    .map_err(|e| format!("序列化压缩包失败: {e}"))?;
+                let pkg: sync::SyncPackage = serde_json::from_value(export_res["package"].clone())
+                    .map_err(|e| format!("解析本地同步包失败: {e}"))?;
+
+                client.upload(&compressed)?;
+
+                let now = sync::current_timestamp_ms();
+                let _ = core.command(
+                    "set_setting".into(),
+                    serde_json::json!({
+                        "key": "webdav_last_sync_time",
+                        "value": now
+                    }),
+                );
+
+                let song_count = pkg.payload.playlists.iter().map(|p| p.songs.len()).sum();
+                Ok(sync::SyncResult {
+                    success: true,
+                    strategy,
+                    timestamp: now,
+                    playlist_count: pkg.payload.playlists.len(),
+                    song_count,
+                    message: "已成功将本地数据上传并覆盖至云盘".into(),
+                })
+            }
+            "download_overwrite" => {
+                let bytes = client.download()?;
+                let pkg = sync::unpack_sync_package(&bytes)?;
+                let apply_res = core.command(
+                    "apply_sync_package".into(),
+                    serde_json::json!({
+                        "package": pkg,
+                        "mode": "overwrite"
+                    }),
+                )?;
+
+                let now = sync::current_timestamp_ms();
+                let _ = core.command(
+                    "set_setting".into(),
+                    serde_json::json!({
+                        "key": "webdav_last_sync_time",
+                        "value": now
+                    }),
+                );
+
+                Ok(sync::SyncResult {
+                    success: true,
+                    strategy,
+                    timestamp: now,
+                    playlist_count: apply_res["totalPlaylists"].as_u64().unwrap_or(0) as usize,
+                    song_count: apply_res["totalSongs"].as_u64().unwrap_or(0) as usize,
+                    message: "已成功从云盘下载并覆盖本地数据".into(),
+                })
+            }
+            "merge" | "smart" => {
+                let download_res = client.download();
+                match download_res {
+                    Ok(bytes) => {
+                        let remote_pkg = sync::unpack_sync_package(&bytes)?;
+                        let apply_res = core.command(
+                            "apply_sync_package".into(),
+                            serde_json::json!({
+                                "package": remote_pkg,
+                                "mode": "merge"
+                            }),
+                        )?;
+
+                        let export_res = core.command("export_sync_package".into(), serde_json::Value::Null)?;
+                        let compressed: Vec<u8> = serde_json::from_value(export_res["compressed"].clone())
+                            .map_err(|e| format!("序列化合并压缩包失败: {e}"))?;
+                        client.upload(&compressed)?;
+
+                        let now = sync::current_timestamp_ms();
+                        let _ = core.command(
+                            "set_setting".into(),
+                            serde_json::json!({
+                                "key": "webdav_last_sync_time",
+                                "value": now
+                            }),
+                        );
+
+                        let added_pl = apply_res["addedPlaylists"].as_u64().unwrap_or(0);
+                        let added_songs = apply_res["addedSongs"].as_u64().unwrap_or(0);
+                        let total_pl = apply_res["totalPlaylists"].as_u64().unwrap_or(0) as usize;
+                        let total_songs = apply_res["totalSongs"].as_u64().unwrap_or(0) as usize;
+
+                        Ok(sync::SyncResult {
+                            success: true,
+                            strategy,
+                            timestamp: now,
+                            playlist_count: total_pl,
+                            song_count: total_songs,
+                            message: format!("智能同步完成！合并新增 {added_pl} 个歌单，{added_songs} 首歌曲"),
+                        })
+                    }
+                    Err(e) if e.contains("未找到同步文件") => {
+                        let export_res = core.command("export_sync_package".into(), serde_json::Value::Null)?;
+                        let compressed: Vec<u8> = serde_json::from_value(export_res["compressed"].clone())
+                            .map_err(|e| format!("序列化压缩包失败: {e}"))?;
+                        let pkg: sync::SyncPackage = serde_json::from_value(export_res["package"].clone())
+                            .map_err(|e| format!("解析本地同步包失败: {e}"))?;
+
+                        client.upload(&compressed)?;
+
+                        let now = sync::current_timestamp_ms();
+                        let _ = core.command(
+                            "set_setting".into(),
+                            serde_json::json!({
+                                "key": "webdav_last_sync_time",
+                                "value": now
+                            }),
+                        );
+
+                        let song_count = pkg.payload.playlists.iter().map(|p| p.songs.len()).sum();
+                        Ok(sync::SyncResult {
+                            success: true,
+                            strategy,
+                            timestamp: now,
+                            playlist_count: pkg.payload.playlists.len(),
+                            song_count,
+                            message: "云盘无历史数据，已成功将本地建立为初始备份".into(),
+                        })
+                    }
+                    Err(e) => Err(e),
+                }
+            }
+            _ => Err(format!("不支持的同步策略: {strategy}")),
+        }
+    })
+    .await
+    .map_err(|e| format!("任务执行异常: {e}"))?
 }
 
 #[tauri::command]
@@ -492,6 +677,10 @@ pub fn run() {
             get_download_tasks,
             get_app_settings,
             save_app_setting,
+            test_webdav_connection,
+            get_webdav_config,
+            save_webdav_config,
+            sync_webdav_data,
             core::core_command,
             core::online_command,
             core::user_api_command
