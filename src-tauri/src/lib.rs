@@ -248,6 +248,11 @@ pub fn run() {
                     .map_err(std::io::Error::other)?,
             );
 
+            // Webviews can invoke commands as soon as they load. Register Core first.
+            for config in &app.config().app.windows {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
+            }
+
             // 注册全局多媒体快捷按键（键盘播放/暂停、上一曲、下一曲）
             for key in ["MediaPlayPause", "MediaTrackNext", "MediaTrackPrevious", "MediaStop"] {
                 let _ = app.global_shortcut().register(key);
