@@ -26,6 +26,8 @@ pub struct Song {
     pub path: String,
     #[serde(deserialize_with = "string_or_default")]
     pub lrc: String,
+    #[serde(deserialize_with = "string_or_default")]
+    pub tlrc: String,
     pub raw: Value,
 }
 
@@ -257,6 +259,33 @@ impl Library {
                     "remove" => {
                         list.songs
                             .retain(|s| s.id != data["songId"].as_str().unwrap_or(""));
+                    }
+                    "batch_add" => {
+                        let songs: Vec<Song> = serde_json::from_value(data["songs"].clone())
+                            .map_err(|e| e.to_string())?;
+                        for song in songs {
+                            if !song.id.is_empty() && !list.songs.iter().any(|s| s.same(&song)) {
+                                list.songs.push(song);
+                            }
+                        }
+                    }
+                    "batch_remove" => {
+                        let ids: std::collections::HashSet<String> =
+                            serde_json::from_value(data["songIds"].clone())
+                                .map_err(|e| e.to_string())?;
+                        list.songs.retain(|s| !ids.contains(&s.id));
+                    }
+                    "reorder" => {
+                        let from = data["from"].as_u64().ok_or("无效的起始索引")? as usize;
+                        let to = data["to"].as_u64().ok_or("无效的目标索引")? as usize;
+                        if from < list.songs.len() && to < list.songs.len() && from != to {
+                            let song = list.songs.remove(from);
+                            list.songs.insert(to, song);
+                        }
+                    }
+                    "replace_songs" => {
+                        list.songs = serde_json::from_value(data["songs"].clone())
+                            .map_err(|e| e.to_string())?;
                     }
                     "local" => {
                         list.songs = serde_json::from_value(data["songs"].clone())

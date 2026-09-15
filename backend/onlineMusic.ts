@@ -184,8 +184,8 @@ export async function getLeaderboardSongs(
 /**
  * 智能获取单曲歌词 (支持五大主流平台 SDK 自动调度)
  */
-export async function getSongLyric(item: MusicItem): Promise<string> {
-  if (item.lrc) return item.lrc
+export async function getSongLyric(item: MusicItem): Promise<{ lyric: string; tlrc?: string } | string> {
+  if (item.lrc) return { lyric: item.lrc, tlrc: item.tlrc || '' }
   const source = item.source || 'wy'
   const sdk = (musicSdk as any)[source]
   if (sdk && sdk.getLyric) {
@@ -199,7 +199,12 @@ export async function getSongLyric(item: MusicItem): Promise<string> {
       }
       const res = await sdk.getLyric(songInfo)
       const data = res?.promise ? await res.promise : await res
-      if (data && data.lyric) return data.lyric
+      if (data && data.lyric) {
+        return {
+          lyric: data.lyric,
+          tlrc: data.tlyric || data.tlrc || '',
+        }
+      }
     } catch (e) {
       console.warn('Get lyric error:', e)
     }

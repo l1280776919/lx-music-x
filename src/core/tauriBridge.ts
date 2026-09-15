@@ -107,6 +107,7 @@ export async function scanAndImportLegacyData(): Promise<ImportResult> {
 
 export interface LyricSyncPayload {
   currentLine: string
+  currentTrans?: string
   nextLine: string
   isPlaying: boolean
   songName: string

@@ -9,14 +9,21 @@
     v-else
     class="w-screen h-screen flex flex-col overflow-hidden bg-[#08090d] text-zinc-100 select-none font-sans relative"
   >
-    <!-- 背景壁纸图 (暗色二次元星空夜景壁纸) -->
+    <!-- 背景壁纸图 (动态支持预设与自定义、模糊度) -->
     <div
-      class="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none transform scale-100 transition-all duration-700 opacity-60"
-      :style="{ backgroundImage: `url(${wallpaperImg})` }"
+      class="absolute -inset-4 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-500"
+      :style="{
+        backgroundImage: themeStore.currentBackground,
+        filter: themeStore.wallpaperBlur > 0 ? `blur(${themeStore.wallpaperBlur}px)` : 'none',
+        transform: themeStore.wallpaperBlur > 0 ? 'scale(1.05)' : 'scale(1)',
+      }"
     ></div>
 
-    <!-- 柔和暗色微光渐变遮罩 (保证文字和UI控件的高清对比度，同时让夜空星光与水景倒影透出) -->
-    <div class="absolute inset-0 bg-gradient-to-b from-[#08090d]/65 via-[#08090d]/50 to-[#08090d]/75 pointer-events-none"></div>
+    <!-- 柔和暗色微光渐变遮罩 (根据用户设置的浓度动态调整) -->
+    <div
+      class="absolute inset-0 pointer-events-none transition-opacity duration-300 bg-gradient-to-b from-[#08090d] via-[#08090d]/85 to-[#08090d]"
+      :style="{ opacity: themeStore.wallpaperDarkness / 100 }"
+    ></div>
 
     <!-- 顶部原生无边框标题栏 -->
     <TitleBar />
@@ -47,9 +54,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import wallpaperImg from '@/assets/wallpaper.jpg'
+import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import TitleBar from '@/components/TitleBar.vue'
 import Sidebar from '@/components/Sidebar.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
@@ -57,12 +64,40 @@ import PlayerDetail from '@/components/PlayerDetail.vue'
 import SoundEffectModal from '@/components/SoundEffectModal.vue'
 import QueueDrawer from '@/components/QueueDrawer.vue'
 import { usePlayerStore } from '@/store/player'
+import { useThemeStore } from '@/store/theme'
+import { broadcastLyricSync } from '@/core/tauriBridge'
 
 import { backendError, backendState, initializeBackend } from '@/core/backend'
 
 const route = useRoute()
 const playerStore = usePlayerStore()
+const themeStore = useThemeStore()
 const isDesktopLyricRoute = computed(() => route.path === '/desktop-lyric')
+
+let unlistenLyricVisibility: UnlistenFn | undefined
+
+// 主窗口将实时歌词与播放状态广播至桌面悬浮歌词窗口
+watch(
+  [
+    () => playerStore.currentLineText,
+    () => playerStore.currentTransText,
+    () => playerStore.nextLineText,
+    () => playerStore.isPlaying,
+    () => playerStore.currentMusic,
+  ],
+  ([currentLine, currentTrans, nextLine, isPlaying, music]) => {
+    if (isDesktopLyricRoute.value) return
+    broadcastLyricSync({
+      currentLine: currentLine || '洛雪音乐 · 享受听歌乐趣',
+      currentTrans: currentTrans || '',
+      nextLine: nextLine || '',
+      isPlaying: !!isPlaying,
+      songName: music?.name || '洛雪音乐',
+      singer: music?.singer || 'LX Music X',
+    })
+  },
+  { immediate: true }
+)
 
 function handleGlobalKeydown(e: KeyboardEvent) {
   // 如果输入框处于焦点中，则不触发播放快捷键
@@ -104,11 +139,18 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
 
+  try {
+    unlistenLyricVisibility = await listen<boolean>('desktop-lyric-visibility-change', (e) => {
+      playerStore.isDesktopLyricOpen = e.payload
+    })
+  } catch {}
+
   await initializeBackend().catch(() => {})
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
+  unlistenLyricVisibility?.()
 })
 </script>
 

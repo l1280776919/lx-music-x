@@ -39,6 +39,22 @@
         </div>
 
         <div class="flex items-center gap-2">
+          <!-- 双语翻译歌词开关 -->
+          <button
+            class="px-2.5 py-1 rounded-full flex items-center justify-center border text-xs font-medium transition-all cursor-pointer select-none"
+            :class="[
+              !hasTranslation ? 'opacity-40 cursor-not-allowed border-white/5 text-zinc-500' :
+              themeStore.showTranslation
+                ? 'bg-sky-500/20 border-sky-400/50 text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.25)]'
+                : 'bg-white/10 hover:bg-white/20 border-white/10 text-zinc-400 hover:text-white'
+            ]"
+            :title="hasTranslation ? (themeStore.showTranslation ? '点击隐藏歌词翻译' : '点击开启双语歌词') : '当前歌曲暂无翻译歌词'"
+            :disabled="!hasTranslation"
+            @click="hasTranslation && themeStore.toggleTranslation()"
+          >
+            <span>译</span>
+          </button>
+
           <button
             class="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-colors text-xs cursor-pointer"
             title="音效均衡器"
@@ -144,12 +160,22 @@
                 : 'text-sm md:text-base text-zinc-500 hover:text-zinc-300'"
               @click="seekToLine(line.time)"
             >
-              <div class="inline-flex items-center gap-2 relative">
-                <span class="opacity-0 group-hover:opacity-100 text-[10px] text-sky-400 font-mono transition-opacity absolute -left-12 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                  <Play class="w-2.5 h-2.5 fill-current" />
-                  <span>{{ formatTime(line.time) }}</span>
-                </span>
-                <span>{{ line.text }}</span>
+              <div class="inline-flex flex-col items-center relative">
+                <div class="inline-flex items-center gap-2 relative">
+                  <span class="opacity-0 group-hover:opacity-100 text-[10px] text-sky-400 font-mono transition-opacity absolute -left-12 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    <Play class="w-2.5 h-2.5 fill-current" />
+                    <span>{{ formatTime(line.time) }}</span>
+                  </span>
+                  <span>{{ line.text }}</span>
+                </div>
+                <!-- 优雅翻译副歌词 -->
+                <div
+                  v-if="themeStore.showTranslation && line.trans"
+                  class="transition-all duration-300 mt-1.5 font-normal tracking-wide"
+                  :class="idx === activeLyricIndex ? 'text-xs md:text-sm text-sky-200/90' : 'text-xs text-zinc-500'"
+                >
+                  {{ line.trans }}
+                </div>
               </div>
             </div>
           </div>
@@ -163,6 +189,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { ChevronDown, Sliders, Heart, Repeat, Repeat1, Shuffle, Play } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
+import { useThemeStore } from '@/store/theme'
 import { backendState } from '@/core/backend'
 
 const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2310b981"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
@@ -175,10 +202,12 @@ function onImgError(e: Event) {
 }
 
 const playerStore = usePlayerStore()
+const themeStore = useThemeStore()
 const lyricScrollBox = ref<HTMLElement | null>(null)
 
 const displayLyrics = computed(() => backendState.lyricEntries)
 const activeLyricIndex = computed(() => playerStore.currentLineIndex)
+const hasTranslation = computed(() => displayLyrics.value.some(l => !!l.trans))
 
 watch(activeLyricIndex, (newIdx) => {
   if (!playerStore.isDetailOpen || !lyricScrollBox.value) return

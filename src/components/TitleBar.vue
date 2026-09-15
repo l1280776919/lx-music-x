@@ -173,7 +173,7 @@ async function closeWindow() {
   }
   try {
     const win = getCurrentWebviewWindow()
-    await win.close()
+    await win.hide()
   } catch (e) {
     console.warn('Close error:', e)
   }

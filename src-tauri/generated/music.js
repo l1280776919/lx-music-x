@@ -16499,7 +16499,10 @@ init: function(high, low) {
 	* 智能获取单曲歌词 (支持五大主流平台 SDK 自动调度)
 	*/
 	async function getSongLyric(item) {
-		if (item.lrc) return item.lrc;
+		if (item.lrc) return {
+			lyric: item.lrc,
+			tlrc: item.tlrc || ""
+		};
 		const sdk = musicSdk_default[item.source || "wy"];
 		if (sdk && sdk.getLyric) try {
 			const songInfo = {
@@ -16513,7 +16516,10 @@ init: function(high, low) {
 			};
 			const res = await sdk.getLyric(songInfo);
 			const data = res?.promise ? await res.promise : await res;
-			if (data && data.lyric) return data.lyric;
+			if (data && data.lyric) return {
+				lyric: data.lyric,
+				tlrc: data.tlyric || data.tlrc || ""
+			};
 		} catch (e) {
 			console.warn("Get lyric error:", e);
 		}

@@ -179,22 +179,31 @@
           </div>
         </div>
 
-        <!-- 列表表头 -->
+        <!-- 列表表头 (支持全选/反选) -->
         <div class="h-9 px-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider bg-white/[0.02] border-b border-white/[0.06] flex items-center justify-between flex-shrink-0 select-none">
-          <div class="flex items-center gap-3 flex-1 min-w-[200px] overflow-hidden">
-            <span class="w-10 text-center flex-shrink-0">#</span>
+          <div class="flex items-center gap-2 flex-1 min-w-[200px] overflow-hidden">
+            <!-- 全选 Checkbox -->
+            <div class="w-6 flex items-center justify-center flex-shrink-0">
+              <input
+                type="checkbox"
+                :checked="isAllSelected"
+                class="w-3.5 h-3.5 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-400"
+                @change="toggleSelectAll"
+              />
+            </div>
+            <span class="w-7 text-center flex-shrink-0 font-mono text-[11px]">#</span>
             <span class="flex-1">歌曲标题</span>
           </div>
           <div class="w-36 md:w-48 lg:w-60 flex-shrink-0 hidden sm:block truncate pr-3">歌手</div>
           <div class="w-32 lg:w-48 flex-shrink-0 hidden md:block truncate pr-3">专辑</div>
-          <div class="flex items-center justify-end gap-3 w-28 flex-shrink-0">
+          <div class="flex items-center justify-end gap-3 w-32 flex-shrink-0">
             <span class="text-right">时长</span>
-            <span class="w-14 text-center">操作</span>
+            <span class="w-20 text-center">操作</span>
           </div>
         </div>
 
-        <!-- 歌曲列表滚动区 -->
-        <div class="flex-1 overflow-y-auto divide-y divide-white/[0.03]">
+        <!-- 歌曲列表滚动区 (支持拖拽重排与批量选中) -->
+        <div class="flex-1 overflow-y-auto divide-y divide-white/[0.03] relative">
           <div v-if="!currentList?.songs.length" class="py-20 text-center text-zinc-500 text-xs space-y-2">
             <div>歌单暂无歌曲</div>
             <div class="text-[11px] text-zinc-600">去“全网搜索”添加歌曲，或点击右上角导入历史歌单</div>
@@ -208,13 +217,33 @@
           <div
             v-for="(song, idx) in filteredSongs"
             :key="song.id"
-            class="h-12 px-4 flex items-center justify-between text-xs transition-colors group cursor-pointer border-b border-white/[0.03] hover:bg-white/[0.04]"
-            :class="playerStore.currentMusic?.id === song.id ? 'bg-sky-500/[0.08]' : ''"
+            :draggable="!filterKeyword && selectedListId !== 'local'"
+            class="h-12 px-4 flex items-center justify-between text-xs transition-colors group cursor-pointer border-b border-white/[0.03] select-none"
+            :class="[
+              playerStore.currentMusic?.id === song.id ? 'bg-sky-500/[0.08]' : 'hover:bg-white/[0.04]',
+              selectedSongIds.has(song.id) ? 'bg-sky-500/[0.12]' : '',
+              dragOverIndex === idx ? 'border-t-2 !border-t-sky-400 bg-sky-500/10' : '',
+              draggedIndex === idx ? 'opacity-30' : ''
+            ]"
+            @dragstart="onDragStart(idx, $event)"
+            @dragover.prevent="onDragOver(idx)"
+            @dragleave="onDragLeave(idx)"
+            @drop.prevent="onDrop(idx)"
+            @dragend="onDragEnd"
             @dblclick="playSelectedSong(song)"
           >
-            <!-- 序号与标题 (自适应弹性充满剩余宽度) -->
-            <div class="flex items-center gap-3 flex-1 min-w-[200px] overflow-hidden pr-3">
-              <div class="w-10 text-center flex-shrink-0 font-mono text-zinc-500 group-hover:text-zinc-300">
+            <!-- 多选框 + 序号与标题 -->
+            <div class="flex items-center gap-2 flex-1 min-w-[200px] overflow-hidden pr-3">
+              <div class="w-6 flex items-center justify-center flex-shrink-0" @click.stop>
+                <input
+                  type="checkbox"
+                  :checked="selectedSongIds.has(song.id)"
+                  class="w-3.5 h-3.5 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-400"
+                  @change="toggleSelectSong(song.id)"
+                />
+              </div>
+
+              <div class="w-7 text-center flex-shrink-0 font-mono text-zinc-500 group-hover:text-zinc-300">
                 <Volume2
                   v-if="playerStore.currentMusic?.id === song.id"
                   class="w-3.5 h-3.5 text-sky-400 animate-pulse mx-auto"
@@ -264,11 +293,11 @@
               {{ song.album || '单曲' }}
             </div>
 
-            <!-- 时长与操作 -->
-            <div class="flex items-center justify-end gap-3 w-28 flex-shrink-0 font-mono text-zinc-400">
+            <!-- 时长与操作 (包含喜欢、下载、播放、移除) -->
+            <div class="flex items-center justify-end gap-3 w-32 flex-shrink-0 font-mono text-zinc-400">
               <span class="text-right text-[11px]">{{ song.interval }}</span>
 
-              <div class="flex items-center gap-1.5 w-14 justify-end">
+              <div class="flex items-center gap-1.5 w-20 justify-end">
                 <button
                   class="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
                   :class="playerStore.isFavorite(song.id) ? 'text-rose-400' : ''"
@@ -280,16 +309,30 @@
                     :class="playerStore.isFavorite(song.id) ? 'fill-rose-400 text-rose-400' : 'text-zinc-500 hover:text-rose-400'"
                   />
                 </button>
+
+                <!-- 离线下载按钮 -->
                 <button
-                  class="p-1 text-zinc-400 hover:text-sky-400 transition-colors"
+                  class="p-1 text-zinc-400 hover:text-sky-400 transition-colors cursor-pointer"
+                  :title="isSongDownloaded(song) ? '已在本地曲库' : '下载到本地'"
+                  :disabled="downloadingSongIds.has(song.id)"
+                  @click.stop="handleDownload(song)"
+                >
+                  <Loader2 v-if="downloadingSongIds.has(song.id)" class="w-3.5 h-3.5 animate-spin text-sky-400" />
+                  <CheckCircle2 v-else-if="isSongDownloaded(song)" class="w-3.5 h-3.5 text-emerald-400" />
+                  <Download v-else class="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  class="p-1 text-zinc-400 hover:text-sky-400 transition-colors cursor-pointer"
                   title="播放"
                   @click.stop="playSelectedSong(song)"
                 >
                   <Play class="w-3.5 h-3.5 fill-current ml-0.5" />
                 </button>
+
                 <button
                   v-if="selectedListId !== 'local'"
-                  class="p-1 text-zinc-500 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100"
+                  class="p-1 text-zinc-500 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
                   title="从歌单移除"
                   @click.stop="playlistStore.removeSongFromList(selectedListId, song.id)"
                 >
@@ -299,6 +342,82 @@
             </div>
           </div>
         </div>
+
+        <!-- 悬浮批量操作工具栏 (当选中歌曲时弹出) -->
+        <transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 translate-y-4 scale-95"
+          enter-to-class="opacity-100 translate-y-0 scale-100"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-y-0 scale-100"
+          leave-to-class="opacity-0 translate-y-4 scale-95"
+        >
+          <div
+            v-if="selectedSongIds.size > 0"
+            class="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 px-4 py-2.5 rounded-2xl bg-[#181920]/95 backdrop-blur-2xl border border-sky-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.7)] flex items-center gap-2.5 select-none"
+          >
+            <div class="flex items-center gap-2 pr-3 border-r border-white/10 text-xs font-semibold text-white">
+              <CheckSquare class="w-4 h-4 text-sky-400" />
+              <span>已选 {{ selectedSongIds.size }} 首</span>
+            </div>
+
+            <button
+              class="desktop-btn-primary !h-7 !px-2.5 !text-[11px]"
+              title="立即播放选中的所有歌曲"
+              @click="playSelectedBatch"
+            >
+              <Play class="w-3 h-3 fill-current" />
+              <span>播放</span>
+            </button>
+
+            <button
+              class="desktop-btn-secondary !h-7 !px-2.5 !text-[11px]"
+              title="加到当前播放队列"
+              @click="addSelectedBatchToQueue"
+            >
+              <ListPlus class="w-3 h-3" />
+              <span>入队</span>
+            </button>
+
+            <button
+              class="desktop-btn-secondary !h-7 !px-2.5 !text-[11px]"
+              title="批量加入我喜欢的音乐"
+              @click="favoriteSelectedBatch"
+            >
+              <Heart class="w-3 h-3 text-rose-400" />
+              <span>收藏</span>
+            </button>
+
+            <button
+              class="desktop-btn-secondary !h-7 !px-2.5 !text-[11px]"
+              title="批量下载到本地"
+              :disabled="isBatchDownloading"
+              @click="downloadSelectedBatch"
+            >
+              <Loader2 v-if="isBatchDownloading" class="w-3 h-3 animate-spin text-sky-400" />
+              <Download v-else class="w-3 h-3 text-sky-400" />
+              <span>{{ isBatchDownloading ? '下载中...' : '批量下载' }}</span>
+            </button>
+
+            <button
+              v-if="selectedListId !== 'local'"
+              class="desktop-btn-secondary !h-7 !px-2.5 !text-[11px] hover:!text-rose-400 hover:!border-rose-500/30"
+              title="从当前歌单移除已选歌曲"
+              @click="removeSelectedBatchFromList"
+            >
+              <Trash2 class="w-3 h-3" />
+              <span>移除</span>
+            </button>
+
+            <button
+              class="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 ml-1 transition-colors cursor-pointer"
+              title="取消选择"
+              @click="selectedSongIds.clear()"
+            >
+              <X class="w-4 h-4" />
+            </button>
+          </div>
+        </transition>
       </main>
     </div>
   </div>
@@ -321,7 +440,11 @@ import {
   ChevronRight,
   Search,
   X,
-  Volume2
+  Volume2,
+  CheckSquare,
+  ListPlus,
+  CheckCircle2,
+  Loader2
 } from 'lucide-vue-next'
 import { usePlayerStore, MusicItem } from '@/store/player'
 import { usePlaylistStore } from '@/store/playlist'
@@ -446,6 +569,143 @@ async function playCurrentListAll() {
   if (list.length) {
     playerStore.replaceQueue(list)
   }
+}
+
+// 批量多选状态与逻辑
+const selectedSongIds = ref<Set<string>>(new Set())
+const isBatchDownloading = ref(false)
+const downloadingSongIds = ref<Set<string>>(new Set())
+const draggedIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+
+const isAllSelected = computed(() => {
+  if (!filteredSongs.value.length) return false
+  return filteredSongs.value.every((s) => selectedSongIds.value.has(s.id))
+})
+
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedSongIds.value.clear()
+  } else {
+    filteredSongs.value.forEach((s) => selectedSongIds.value.add(s.id))
+  }
+}
+
+function toggleSelectSong(id: string) {
+  if (selectedSongIds.value.has(id)) {
+    selectedSongIds.value.delete(id)
+  } else {
+    selectedSongIds.value.add(id)
+  }
+}
+
+const getSelectedSongs = () => {
+  return (currentList.value?.songs || []).filter((s) => selectedSongIds.value.has(s.id))
+}
+
+function playSelectedBatch() {
+  const songs = getSelectedSongs()
+  if (songs.length) {
+    playerStore.replaceQueue(songs)
+  }
+}
+
+function addSelectedBatchToQueue() {
+  const songs = getSelectedSongs()
+  if (songs.length) {
+    playerStore.batchAddToQueue(songs)
+    alert(`已将 ${songs.length} 首歌曲加入当前播放队列`)
+  }
+}
+
+async function favoriteSelectedBatch() {
+  const songs = getSelectedSongs()
+  for (const s of songs) {
+    if (!playerStore.isFavorite(s.id)) {
+      await playerStore.toggleFavorite(s)
+    }
+  }
+  selectedSongIds.value.clear()
+}
+
+async function removeSelectedBatchFromList() {
+  if (!confirm(`确定从当前歌单移除选中的 ${selectedSongIds.value.size} 首歌曲吗？`)) return
+  const ids = Array.from(selectedSongIds.value)
+  await playlistStore.batchRemoveSongs(selectedListId.value, ids)
+  selectedSongIds.value.clear()
+}
+
+function isSongDownloaded(song: MusicItem) {
+  return (
+    song.source === 'local' ||
+    !!song.path ||
+    customLists.value.find((l) => l.id === 'local')?.songs.some((s) => s.id === song.id || s.name === song.name)
+  )
+}
+
+async function handleDownload(song: MusicItem) {
+  if (downloadingSongIds.value.has(song.id) || isSongDownloaded(song)) return
+  downloadingSongIds.value.add(song.id)
+  try {
+    const path = await playlistStore.downloadSong(song)
+    alert(`《${song.name}》已成功下载并存入本地音乐库！\n路径: ${path}`)
+  } catch (err: any) {
+    alert(`下载失败: ${err?.message || err}`)
+  } finally {
+    downloadingSongIds.value.delete(song.id)
+  }
+}
+
+async function downloadSelectedBatch() {
+  const songs = getSelectedSongs()
+  if (!songs.length || isBatchDownloading.value) return
+  isBatchDownloading.value = true
+  let successCount = 0
+  for (const s of songs) {
+    try {
+      await playlistStore.downloadSong(s)
+      successCount++
+    } catch (e) {
+      console.warn(`Download failed for ${s.name}:`, e)
+    }
+  }
+  isBatchDownloading.value = false
+  selectedSongIds.value.clear()
+  alert(`批量下载完成：成功 ${successCount} / ${songs.length} 首，已保存到下载目录并同步到本地音乐。`)
+}
+
+// 歌曲拖拽重排交互
+function onDragStart(idx: number, e: DragEvent) {
+  draggedIndex.value = idx
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(idx))
+  }
+}
+
+function onDragOver(idx: number) {
+  if (draggedIndex.value !== null && draggedIndex.value !== idx) {
+    dragOverIndex.value = idx
+  }
+}
+
+function onDragLeave(idx: number) {
+  if (dragOverIndex.value === idx) {
+    dragOverIndex.value = null
+  }
+}
+
+async function onDrop(targetIdx: number) {
+  const fromIdx = draggedIndex.value
+  if (fromIdx !== null && fromIdx !== targetIdx) {
+    await playlistStore.reorderSong(selectedListId.value, fromIdx, targetIdx)
+  }
+  onDragEnd()
+}
+
+function onDragEnd() {
+  draggedIndex.value = null
+  dragOverIndex.value = null
 }
 </script>
 

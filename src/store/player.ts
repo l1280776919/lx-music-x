@@ -5,7 +5,7 @@ import { usePlaylistStore } from './playlist'
 
 export interface MusicItem {
   id: string; name: string; singer: string; album?: string; interval?: string;
-  source?: string; pic?: string; url?: string; lrc?: string; path?: string; raw?: any;
+  source?: string; pic?: string; url?: string; lrc?: string; tlrc?: string; path?: string; raw?: any;
 }
 export type PlayMode = 'list' | 'single' | 'random'
 
@@ -29,6 +29,7 @@ export const usePlayerStore = defineStore('player', () => {
     duration: computed(() => state.playback.duration),
     loading: computed(() => state.playback.loading),
     currentLineText: computed(() => state.playback.currentLineText),
+    currentTransText: computed(() => (state.playback as any).currentTransText || ''),
     nextLineText: computed(() => state.playback.nextLineText),
     currentLineIndex: computed(() => state.playback.currentLineIndex),
     lyricLines: computed(() => state.lyricLines),
@@ -44,6 +45,7 @@ export const usePlayerStore = defineStore('player', () => {
     playMusic: (song: MusicItem) => sendCommand('play', { song }),
     replaceQueue: (songs: MusicItem[], index = 0) => sendCommand('replace', { songs, index }),
     addToQueue: (song: MusicItem, playNow = false) => sendCommand('add', { song, playNow }),
+    batchAddToQueue: (songs: MusicItem[]) => sendCommand('batch_add', { songs }),
     removeFromQueue: (index: number) => sendCommand('remove', { index }),
     clearQueue: () => sendCommand('clear'),
     cyclePlayMode: () => sendCommand('mode'),

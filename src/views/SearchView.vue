@@ -85,9 +85,9 @@
           </div>
           <div class="w-36 md:w-48 lg:w-60 flex-shrink-0 hidden sm:block truncate pr-3">歌手</div>
           <div class="w-32 lg:w-48 flex-shrink-0 hidden md:block truncate pr-3">专辑</div>
-          <div class="flex items-center justify-end gap-3 w-28 flex-shrink-0">
+          <div class="flex items-center justify-end gap-3 w-32 flex-shrink-0">
             <span class="text-right">时长</span>
-            <span class="w-14 text-center">操作</span>
+            <span class="w-20 text-center">操作</span>
           </div>
         </div>
 
@@ -137,11 +137,11 @@
               {{ song.album || '单曲' }}
             </div>
 
-            <!-- 时长与操作 -->
-            <div class="flex items-center justify-end gap-3 w-28 flex-shrink-0 font-mono text-zinc-400">
+            <!-- 时长与操作 (包含喜欢、离线下载、播放) -->
+            <div class="flex items-center justify-end gap-3 w-32 flex-shrink-0 font-mono text-zinc-400">
               <span class="text-right text-[11px]">{{ song.interval }}</span>
 
-              <div class="flex items-center gap-1.5 w-14 justify-end">
+              <div class="flex items-center gap-1.5 w-20 justify-end">
                 <button
                   class="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
                   :class="playerStore.isFavorite(song.id) ? 'text-rose-400' : ''"
@@ -152,6 +152,16 @@
                     class="w-3.5 h-3.5"
                     :class="playerStore.isFavorite(song.id) ? 'fill-rose-400 text-rose-400' : 'text-zinc-500 hover:text-rose-400'"
                   />
+                </button>
+                <button
+                  class="p-1 text-zinc-400 hover:text-sky-400 transition-colors cursor-pointer"
+                  :title="isSongDownloaded(song) ? '已在本地曲库' : '下载到本地'"
+                  :disabled="downloadingSongIds.has(song.id)"
+                  @click.stop="handleDownload(song)"
+                >
+                  <Loader2 v-if="downloadingSongIds.has(song.id)" class="w-3.5 h-3.5 animate-spin text-sky-400" />
+                  <CheckCircle2 v-else-if="isSongDownloaded(song)" class="w-3.5 h-3.5 text-emerald-400" />
+                  <Download v-else class="w-3.5 h-3.5" />
                 </button>
                 <button
                   class="p-1 text-zinc-400 hover:text-sky-400 transition-colors cursor-pointer"
@@ -171,9 +181,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Search, Music2, Play, Heart } from 'lucide-vue-next'
+import { Search, Music2, Play, Heart, Download, Loader2, CheckCircle2 } from 'lucide-vue-next'
 import { searchOnlineMusic, supportedSources } from '@/core/onlineMusic'
 import { usePlayerStore, MusicItem } from '@/store/player'
+import { usePlaylistStore } from '@/store/playlist'
 
 const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2338bdf8"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
 
@@ -192,6 +203,27 @@ function searchTag(tag: string) {
 }
 
 const playerStore = usePlayerStore()
+const playlistStore = usePlaylistStore()
+const downloadingSongIds = ref<Set<string>>(new Set())
+
+function isSongDownloaded(song: MusicItem): boolean {
+  const localList = playlistStore.customLists.find(l => l.id === 'local')
+  if (!localList) return false
+  return localList.songs.some(s => (s.name === song.name && s.singer === song.singer) || s.id === song.id)
+}
+
+async function handleDownload(song: MusicItem) {
+  if (downloadingSongIds.value.has(song.id)) return
+  downloadingSongIds.value.add(song.id)
+  try {
+    await playlistStore.downloadSong(song)
+  } catch (err: any) {
+    alert(`下载失败: ${err?.message || err}`)
+  } finally {
+    downloadingSongIds.value.delete(song.id)
+  }
+}
+
 const keyword = ref('')
 const activeSource = ref('wy')
 const isLoading = ref(false)

@@ -15,10 +15,10 @@ export const backendState = reactive({
   },
   playback: {
     isPlaying: false, currentTime: 0, duration: 0, loading: false, error: null as string | null,
-    currentLineIndex: -1, currentLineText: '', nextLineText: '',
+    currentLineIndex: -1, currentLineText: '', currentTransText: '', nextLineText: '',
   },
   lyricLines: [] as string[],
-  lyricEntries: [] as { time: number; text: string }[],
+  lyricEntries: [] as { time: number; text: string; trans?: string }[],
 })
 
 function apply(snapshot: any) {

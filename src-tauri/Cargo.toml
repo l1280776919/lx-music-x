@@ -1,6 +1,6 @@
 [package]
 name = "lx-music-x"
-version = "0.1.6"
+version = "0.1.7"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -32,6 +32,7 @@ rand = "0.8"
 regex = "1"
 flate2 = "1"
 rsa = "0.9"
+tauri-plugin-global-shortcut = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

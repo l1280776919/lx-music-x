@@ -6,6 +6,141 @@
       <p class="text-xs text-zinc-400">管理音源解析、桌面歌词、数据备份与关于信息</p>
     </header>
 
+    <!-- 0. 外观与个性化壁纸 -->
+    <section class="space-y-2.5">
+      <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider px-0.5">外观与个性化壁纸</h2>
+      <div class="bg-[#141518]/70 backdrop-blur-xl rounded-2xl border border-white/[0.08] shadow-lg p-5 space-y-5">
+        <!-- 预设壁纸库 -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <Sparkles class="w-4 h-4 text-sky-400" />
+              <span class="text-xs font-medium text-zinc-200">预设壁纸库</span>
+            </div>
+            <span class="text-[11px] text-zinc-400">点击即时切换主题氛围</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div
+              v-for="preset in themeStore.presets"
+              :key="preset.id"
+              class="group relative rounded-xl overflow-hidden border cursor-pointer transition-all duration-200 aspect-[16/10] flex flex-col justify-end p-2.5"
+              :class="themeStore.wallpaperType === 'preset' && themeStore.selectedPresetId === preset.id
+                ? 'border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/50'
+                : 'border-white/10 hover:border-white/30'"
+              :style="{ background: preset.preview.startsWith('linear-') || preset.preview.startsWith('radial-') ? preset.preview : undefined }"
+              @click="themeStore.selectPreset(preset.id)"
+            >
+              <img
+                v-if="!preset.preview.startsWith('linear-') && !preset.preview.startsWith('radial-')"
+                :src="preset.preview"
+                class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
+              <div class="relative z-10">
+                <div class="text-xs font-semibold text-white flex items-center justify-between">
+                  <span>{{ preset.name }}</span>
+                  <Check
+                    v-if="themeStore.wallpaperType === 'preset' && themeStore.selectedPresetId === preset.id"
+                    class="w-3.5 h-3.5 text-sky-400"
+                  />
+                </div>
+                <div class="text-[10px] text-zinc-300 truncate mt-0.5">{{ preset.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 自定义壁纸上传与重置 -->
+        <div class="pt-2 border-t border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center flex-shrink-0 border border-purple-500/20">
+              <ImageIcon class="w-4 h-4" />
+            </div>
+            <div>
+              <div class="font-medium text-xs text-zinc-100 flex items-center gap-2">
+                <span>自定义本地壁纸</span>
+                <span
+                  v-if="themeStore.wallpaperType === 'custom'"
+                  class="px-1.5 py-0.5 rounded text-[10px] bg-sky-500/20 text-sky-400 border border-sky-500/30 font-medium"
+                >使用中</span>
+              </div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">支持上传本地 JPG / PNG / WebP 高清大图，自动持久化存储</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input
+              ref="wallpaperFileInput"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              class="hidden"
+              @change="handleWallpaperUpload"
+            />
+            <button
+              class="desktop-btn-primary"
+              @click="triggerWallpaperPick"
+            >
+              <Upload class="w-3.5 h-3.5" />
+              <span>上传壁纸</span>
+            </button>
+            <button
+              class="desktop-btn-secondary"
+              @click="themeStore.resetToDefault()"
+            >
+              <RotateCcw class="w-3.5 h-3.5" />
+              <span>恢复默认</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 视觉调节滑块 (模糊度与遮罩浓度) -->
+        <div class="pt-2 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- 模糊度 -->
+          <div class="space-y-1.5 bg-white/[0.02] p-3 rounded-xl border border-white/[0.04]">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-zinc-300 font-medium">背景模糊 (毛玻璃)</span>
+              <span class="text-sky-400 font-mono">{{ themeStore.wallpaperBlur }} px</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="25"
+              step="1"
+              :value="themeStore.wallpaperBlur"
+              class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-sky-400"
+              @input="(e: any) => themeStore.setBlur(Number(e.target.value))"
+            />
+            <div class="flex justify-between text-[10px] text-zinc-500">
+              <span>清晰原图 (0px)</span>
+              <span>深邃虚化 (25px)</span>
+            </div>
+          </div>
+
+          <!-- 遮罩浓度 -->
+          <div class="space-y-1.5 bg-white/[0.02] p-3 rounded-xl border border-white/[0.04]">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-zinc-300 font-medium">暗色遮罩浓度</span>
+              <span class="text-sky-400 font-mono">{{ themeStore.wallpaperDarkness }}%</span>
+            </div>
+            <input
+              type="range"
+              min="20"
+              max="95"
+              step="5"
+              :value="themeStore.wallpaperDarkness"
+              class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-sky-400"
+              @input="(e: any) => themeStore.setDarkness(Number(e.target.value))"
+            />
+            <div class="flex justify-between text-[10px] text-zinc-500">
+              <span>透亮微光 (20%)</span>
+              <span>高对比 (95%)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 1. 桌面歌词与交互 -->
     <section class="space-y-2.5">
       <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-wider px-0.5">桌面歌词 & 音效</h2>
@@ -190,20 +325,46 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Monitor, Sliders, Code2, Database, Cpu, Plus, Info, Upload, RotateCcw, Globe } from 'lucide-vue-next'
+import { Monitor, Sliders, Code2, Database, Cpu, Plus, Info, Upload, RotateCcw, Globe, Check, Sparkles, Image as ImageIcon } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
 import { usePlaylistStore } from '@/store/playlist'
+import { useThemeStore } from '@/store/theme'
 import { toggleDesktopLyricWindow, getSystemInfo, scanAndImportLegacyData } from '@/core/tauriBridge'
 import { userApiManager, UserApiScriptMeta, DEFAULT_USER_API_URL } from '@/core/userApi/sandbox'
 
 const playerStore = usePlayerStore()
+const themeStore = useThemeStore()
 const sysInfo = ref<any>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const wallpaperFileInput = ref<HTMLInputElement | null>(null)
 const activeScript = ref<UserApiScriptMeta | null>(null)
 const dbImportStatus = ref('检查并导入历史数据')
 
 const sourceUrlInput = ref(DEFAULT_USER_API_URL)
 const isImportingUrl = ref(false)
+
+function triggerWallpaperPick() {
+  wallpaperFileInput.value?.click()
+}
+
+function handleWallpaperUpload(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  // Check file size limit (e.g. 15MB)
+  if (file.size > 15 * 1024 * 1024) {
+    alert('图片文件过大，请选择 15MB 以内的壁纸图片')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    const dataUrl = reader.result as string
+    themeStore.setCustomWallpaper(dataUrl)
+  }
+  reader.readAsDataURL(file)
+}
 
 const presetSources = [
   { name: 'SixYin 音源 (推荐)', url: 'https://raw.githubusercontent.com/pdone/lx-music-source/main/sixyin/latest.js' },

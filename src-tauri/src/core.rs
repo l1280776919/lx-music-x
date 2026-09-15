@@ -104,13 +104,15 @@ impl Core {
                                 .total_duration()
                                 .map(|d| d.as_secs_f64())
                                 .unwrap_or(0.);
-                            sink.append(Equalizer::new(source, engine.eq.clone()));
+                            let eq_source = Equalizer::new(source, engine.eq.clone())
+                                .fade_in(Duration::from_millis(250));
+                            sink.append(eq_source);
                             sink.set_volume(if engine.library.muted {
                                 0.
                             } else {
                                 engine.library.volume
                             });
-                            engine.lyrics = Lyrics::parse(&song.lrc);
+                            engine.lyrics = Lyrics::parse(&song.lrc, &song.tlrc);
                             if let Some(current) =
                                 engine.library.queue.get_mut(engine.library.current_index)
                             {
@@ -167,6 +169,11 @@ fn resolve(mut song: Song, script: &str) -> Result<(Song, Vec<u8>), String> {
                 std::fs::read_to_string(std::path::Path::new(&song.path).with_extension("lrc"))
                     .unwrap_or_default();
         }
+        if song.tlrc.is_empty() {
+            song.tlrc =
+                std::fs::read_to_string(std::path::Path::new(&song.path).with_extension("tlrc"))
+                    .unwrap_or_default();
+        }
         return Ok((song, vec![]));
     }
     let url = online::call("url", json!(song), script)?
@@ -194,10 +201,18 @@ fn resolve(mut song: Song, script: &str) -> Result<(Song, Vec<u8>), String> {
         return Err("音频超过 128 MiB 缓冲上限".into());
     }
     if song.lrc.is_empty() {
-        song.lrc = online::call("lyric", json!(song), script)
-            .ok()
-            .and_then(|v| v.as_str().map(str::to_owned))
-            .unwrap_or_default();
+        if let Ok(val) = online::call("lyric", json!(song), script) {
+            if let Some(s) = val.as_str() {
+                song.lrc = s.to_owned();
+            } else if let Some(obj) = val.as_object() {
+                if let Some(lrc) = obj.get("lyric").and_then(|v| v.as_str()) {
+                    song.lrc = lrc.to_owned();
+                }
+                if let Some(tlrc) = obj.get("tlrc").and_then(|v| v.as_str()).or_else(|| obj.get("tlyric").and_then(|v| v.as_str())) {
+                    song.tlrc = tlrc.to_owned();
+                }
+            }
+        }
     }
     Ok((song, bytes))
 }
@@ -233,10 +248,10 @@ impl Engine {
         let time = self.time();
         let index = self.lyrics.index(time);
         json!({"isPlaying":self.playing(),"currentTime":time,"duration":self.duration,"loading":self.loading,"error":self.error,
-            "currentLineIndex":index,"currentLineText":self.lyrics.line(index),"nextLineText":self.lyrics.line(index+1)})
+            "currentLineIndex":index,"currentLineText":self.lyrics.line(index),"currentTransText":self.lyrics.trans(index),"nextLineText":self.lyrics.line(index+1)})
     }
     fn snapshot(&self) -> Value {
-        json!({"revision":self.revision,"library":self.library,"playback":self.playback(),"lyricLines":self.lyrics.0.iter().map(|(_,s)|s).collect::<Vec<_>>(),"lyricEntries":self.lyrics.0.iter().map(|(t,s)|json!({"time":t,"text":s})).collect::<Vec<_>>()})
+        json!({"revision":self.revision,"library":self.library,"playback":self.playback(),"lyricLines":self.lyrics.0.iter().map(|(_,s,_)|s).collect::<Vec<_>>(),"lyricEntries":self.lyrics.0.iter().map(|(t,s,tr)|json!({"time":t,"text":s,"trans":tr})).collect::<Vec<_>>()})
     }
     fn emit(&mut self) {
         self.revision += 1;
@@ -248,13 +263,20 @@ impl Engine {
         let song = self.library.current();
         (self.emit_event)(
             "lyric-sync",
-            json!({"currentLine":self.lyrics.line(index),"nextLine":self.lyrics.line(index+1),"isPlaying":self.playing(),"songName":song.map(|s|s.name.as_str()).unwrap_or(""),"singer":song.map(|s|s.singer.as_str()).unwrap_or("")}),
+            json!({"currentLine":self.lyrics.line(index),"currentTrans":self.lyrics.trans(index),"nextLine":self.lyrics.line(index+1),"isPlaying":self.playing(),"songName":song.map(|s|s.name.as_str()).unwrap_or(""),"singer":song.map(|s|s.singer.as_str()).unwrap_or("")}),
         );
     }
     fn stop(&mut self) {
         self.generation += 1;
         self.loading = false;
         if let Some(s) = self.sink.take() {
+            if !s.is_paused() && !s.empty() {
+                let current = if self.library.muted { 0. } else { self.library.volume };
+                for step in (0..=3).rev() {
+                    s.set_volume(current * (step as f32 / 3.0));
+                    std::thread::sleep(Duration::from_millis(15));
+                }
+            }
             s.stop();
         }
         self.duration = 0.;
@@ -289,9 +311,21 @@ impl Engine {
                     self.stop();
                 } else if let Some(s) = &self.sink {
                     if s.is_paused() {
-                        s.play()
+                        let target = if self.library.muted { 0. } else { self.library.volume };
+                        s.set_volume(0.);
+                        s.play();
+                        for step in 1..=4 {
+                            s.set_volume(target * (step as f32 / 4.0));
+                            std::thread::sleep(Duration::from_millis(15));
+                        }
                     } else {
-                        s.pause()
+                        let current = if self.library.muted { 0. } else { self.library.volume };
+                        for step in (0..=4).rev() {
+                            s.set_volume(current * (step as f32 / 4.0));
+                            std::thread::sleep(Duration::from_millis(15));
+                        }
+                        s.pause();
+                        s.set_volume(current);
                     }
                 } else {
                     start = true;
@@ -312,6 +346,15 @@ impl Engine {
                 if action == "play" || data["playNow"] == true {
                     self.library.current_index = index;
                     start = true;
+                }
+            }
+            "batch_add" => {
+                let songs: Vec<Song> =
+                    serde_json::from_value(data["songs"].clone()).map_err(|e| e.to_string())?;
+                for song in songs {
+                    if !song.id.is_empty() && !self.library.queue.iter().any(|s| s.same(&song)) {
+                        self.library.queue.push(song);
+                    }
                 }
             }
             "replace" => {
