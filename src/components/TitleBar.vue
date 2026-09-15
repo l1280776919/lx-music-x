@@ -1,40 +1,69 @@
 <template>
   <header
     data-tauri-drag-region
-    class="h-8 w-full flex items-center justify-between px-3 select-none z-50 text-xs transition-colors"
-    :class="playerStore.isDetailOpen
-      ? 'bg-[#121214] border-b border-white/10 text-white'
-      : 'bg-zinc-100 dark:bg-[#121214] border-b border-zinc-200/80 dark:border-zinc-800/80'"
+    class="h-12 w-full flex items-center justify-between px-4 select-none z-50 text-xs transition-colors flex-shrink-0 bg-[#121316]/80 backdrop-blur-xl border-b border-white/[0.08]"
   >
-    <!-- 左侧应用标题或返回按钮 -->
-    <div class="flex items-center gap-2 pl-1">
+    <!-- 左侧：暗黑磨砂质感徽标 + 标题 + 前进后退 -->
+    <div class="flex items-center gap-3 pl-1">
+      <!-- 播放详情打开时提供返回按钮 -->
       <button
         v-if="playerStore.isDetailOpen"
-        class="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-zinc-300 hover:text-white hover:bg-white/10 transition-colors pointer-events-auto cursor-pointer font-medium"
+        class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs text-zinc-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-md transition-all pointer-events-auto cursor-pointer font-medium shadow-sm"
         title="收起播放详情 (Esc)"
         @click="playerStore.isDetailOpen = false"
       >
         <ChevronDown class="w-3.5 h-3.5" />
         <span>收起详情</span>
       </button>
+
+      <!-- 默认品牌区域 (暗色质感微标) -->
       <div v-else class="flex items-center gap-2 pointer-events-none">
-        <svg class="w-3.5 h-3.5 text-brand-500 fill-current" viewBox="0 0 24 24">
-          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-        </svg>
-        <span class="font-medium text-zinc-700 dark:text-zinc-300 text-xs tracking-tight">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-sky-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-sky-400 shadow-sm backdrop-blur-sm">
+          <Music2 class="w-3.5 h-3.5" />
+        </div>
+        <span class="font-bold text-zinc-100 text-xs tracking-wide">
           LX Music
         </span>
       </div>
+
+      <!-- 经典前进/后退毛玻璃圆键 -->
+      <div v-if="!playerStore.isDetailOpen" class="flex items-center gap-1.5 ml-2 pointer-events-auto">
+        <button
+          class="w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/10 border border-white/[0.06] transition-all cursor-pointer"
+          title="后退 (Alt + Left)"
+          @click="goBack"
+        >
+          <ChevronLeft class="w-3.5 h-3.5" />
+        </button>
+        <button
+          class="w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/10 border border-white/[0.06] transition-all cursor-pointer"
+          title="前进 (Alt + Right)"
+          @click="goForward"
+        >
+          <ChevronRight class="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
 
-    <!-- 右侧系统窗口控制按钮 (Windows 11 / macOS 极简无边框设计) -->
-    <div class="flex items-center h-full -mr-3">
+    <!-- 中间：暗黑半透明毛玻璃搜索框快捷入口 -->
+    <div class="flex-1 max-w-sm mx-4 pointer-events-auto">
+      <div class="relative flex items-center">
+        <input
+          v-model="quickSearchKeyword"
+          type="text"
+          placeholder="搜索音乐、歌手、歌词..."
+          class="w-full h-7 pl-8 pr-3 rounded-full bg-white/[0.05] hover:bg-white/[0.08] focus:bg-white/[0.1] border border-white/[0.08] focus:border-sky-500/50 text-[11px] text-zinc-200 placeholder-zinc-500 transition-all outline-none backdrop-blur-sm shadow-inner"
+          @keyup.enter="handleQuickSearch"
+        />
+        <Search class="absolute left-2.5 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+      </div>
+    </div>
+
+    <!-- 右侧系统窗口控制 (极简无边框设计) -->
+    <div class="flex items-center h-full -mr-4 pointer-events-auto">
       <!-- 最小化 -->
       <button
-        class="w-11 h-8 flex items-center justify-center transition-colors cursor-pointer"
-        :class="playerStore.isDetailOpen
-          ? 'text-zinc-400 hover:text-white hover:bg-white/10'
-          : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'"
+        class="w-11 h-12 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
         title="最小化"
         @click="minimizeWindow"
       >
@@ -45,10 +74,7 @@
 
       <!-- 最大化 / 还原 -->
       <button
-        class="w-11 h-8 flex items-center justify-center transition-colors cursor-pointer"
-        :class="playerStore.isDetailOpen
-          ? 'text-zinc-400 hover:text-white hover:bg-white/10'
-          : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'"
+        class="w-11 h-12 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
         :title="isMaximized ? '向下还原' : '最大化'"
         @click="maximizeWindow"
       >
@@ -63,7 +89,7 @@
 
       <!-- 关闭 -->
       <button
-        class="w-11 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#e81123] transition-colors cursor-pointer"
+        class="w-11 h-12 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-red-500/80 transition-colors cursor-pointer"
         title="关闭"
         @click="closeWindow"
       >
@@ -77,13 +103,33 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { isTauri } from '@/core/tauriBridge'
 import { usePlayerStore } from '@/store/player'
-import { ChevronDown } from 'lucide-vue-next'
+import { ChevronDown, ChevronLeft, ChevronRight, Search, Music2 } from 'lucide-vue-next'
 
+const router = useRouter()
 const playerStore = usePlayerStore()
 const isMaximized = ref(false)
+const quickSearchKeyword = ref('')
+
+function goBack() {
+  router.back()
+}
+
+function goForward() {
+  router.forward()
+}
+
+function handleQuickSearch() {
+  const kw = quickSearchKeyword.value.trim()
+  if (kw) {
+    router.push({ path: '/search', query: { q: kw } })
+  } else {
+    router.push('/search')
+  }
+}
 
 onMounted(async () => {
   if (isTauri()) {

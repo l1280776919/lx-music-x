@@ -1,22 +1,23 @@
 <template>
   <div
     v-if="playerStore.isSoundEffectOpen"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md transition-opacity"
     @click.self="playerStore.isSoundEffectOpen = false"
   >
-    <div class="w-[620px] rounded-xl bg-[#18181c] border border-zinc-800 p-5 shadow-2xl text-zinc-200 space-y-4 select-none">
+    <div class="w-[620px] rounded-2xl bg-[#121316]/90 backdrop-blur-2xl border border-white/[0.08] p-6 shadow-2xl text-zinc-100 space-y-5 select-none">
       <!-- 弹窗标题 -->
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div class="w-7 h-7 rounded-lg bg-brand-500/10 text-brand-500 flex items-center justify-center">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
             <Sliders class="w-4 h-4" />
           </div>
           <div>
             <h3 class="text-sm font-bold text-white tracking-wide">音频均衡器 (10-Band EQ)</h3>
+            <p class="text-[11px] text-zinc-400">调整声音频率曲线，获得更细腻清澈的听感</p>
           </div>
         </div>
         <button
-          class="p-1 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+          class="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
           @click="playerStore.isSoundEffectOpen = false"
         >
           <X class="w-4 h-4" />
@@ -24,14 +25,14 @@
       </div>
 
       <!-- 快速预设 -->
-      <div class="space-y-1.5">
-        <div class="text-[11px] font-medium text-zinc-400">音效预设</div>
-        <div class="flex flex-wrap gap-1.5">
+      <div class="space-y-2">
+        <div class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">音效预设</div>
+        <div class="flex flex-wrap gap-2">
           <button
             v-for="p in freqsPreset"
             :key="p.name"
-            class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
-            :class="activePresetName === p.name ? 'bg-brand-500 text-white shadow-sm' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'"
+            class="px-3 py-1 rounded-lg text-xs font-medium transition-all"
+            :class="activePresetName === p.name ? 'bg-sky-500 text-white font-semibold shadow-sm' : 'bg-white/[0.05] hover:bg-white/10 text-zinc-300 border border-white/[0.06]'"
             @click="selectPreset(p)"
           >
             {{ p.name }}
@@ -40,20 +41,20 @@
       </div>
 
       <!-- 10 段频段推子滑块 -->
-      <div class="space-y-2">
+      <div class="space-y-2.5">
         <div class="flex items-center justify-between text-xs text-zinc-400">
-          <span class="text-[11px] font-medium">频段增益 (dB)</span>
-          <button class="text-xs hover:text-brand-400 transition-colors" @click="resetEQ">重置平直</button>
+          <span class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">频段增益 (dB)</span>
+          <button class="text-xs text-zinc-400 hover:text-sky-400 transition-colors" @click="resetEQ">重置平直</button>
         </div>
 
-        <div class="grid grid-cols-10 gap-1.5 p-3 rounded-lg bg-black/40 border border-zinc-800/80">
+        <div class="grid grid-cols-10 gap-1.5 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
           <div
             v-for="hz in freqs"
             :key="hz"
-            class="flex flex-col items-center gap-1.5 h-40 justify-between"
+            class="flex flex-col items-center gap-2 h-44 justify-between"
           >
             <!-- 增益数字 -->
-            <span class="text-[10px] font-mono" :class="gains[hz] > 0 ? 'text-brand-400' : gains[hz] < 0 ? 'text-amber-400' : 'text-zinc-500'">
+            <span class="text-[10px] font-mono font-medium" :class="gains[hz] > 0 ? 'text-sky-400' : gains[hz] < 0 ? 'text-amber-400' : 'text-zinc-500'">
               {{ gains[hz] > 0 ? `+${gains[hz]}` : gains[hz] }}
             </span>
 
@@ -65,7 +66,7 @@
                 min="-12"
                 max="12"
                 step="1"
-                class="w-24 h-1 bg-zinc-700 rounded appearance-none accent-[#2da86c] -rotate-90 cursor-pointer"
+                class="w-24 h-1.5 bg-white/10 rounded appearance-none accent-sky-400 -rotate-90 cursor-pointer"
                 @input="handleGainChange(hz)"
               />
             </div>
@@ -78,7 +79,7 @@
         </div>
       </div>
 
-      <div class="pt-2 border-t border-zinc-800 flex items-center justify-end">
+      <div class="pt-2 border-t border-white/[0.06] flex items-center justify-end">
         <button
           class="desktop-btn-primary"
           @click="playerStore.isSoundEffectOpen = false"

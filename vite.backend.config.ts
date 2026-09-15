@@ -12,6 +12,7 @@ export default defineConfig({
     { find: '@common', replacement: path.join(root, 'src/common') },
     ...['crypto', 'dns', 'zlib'].flatMap(n => [n, `node:${n}`].map(find => ({ find, replacement: path.join(root, `backend/shims/${n}.ts`) }))),
   ] },
+  publicDir: false,
   build: { outDir: 'src-tauri/generated', emptyOutDir: false, target: 'es2020', minify: false,
     lib: { entry: 'backend/entry.ts', formats: ['iife'], name: 'LxBackend', fileName: () => 'music.js' },
   },

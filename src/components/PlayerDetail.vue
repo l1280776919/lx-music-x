@@ -9,30 +9,30 @@
   >
     <div
       v-if="playerStore.isDetailOpen"
-      class="fixed top-8 inset-x-0 bottom-[68px] z-40 flex flex-col bg-[#121214] text-white overflow-hidden select-none"
+      class="fixed top-12 inset-x-0 bottom-[74px] z-40 flex flex-col bg-[#0c0d10]/95 backdrop-blur-3xl text-white overflow-hidden select-none"
     >
-      <!-- 动态背景氛围毛玻璃光晕 -->
+      <!-- 动态背景氛围毛玻璃光晕 (超大模糊与多层色彩融合) -->
       <div
-        class="absolute inset-0 bg-cover bg-center blur-3xl opacity-35 scale-125 pointer-events-none transition-all duration-1000"
+        class="absolute inset-0 bg-cover bg-center blur-[100px] opacity-20 scale-150 pointer-events-none transition-all duration-1000"
         :style="{ backgroundImage: `url(${playerStore.currentMusic?.pic || defaultCover})` }"
       ></div>
-      <div class="absolute inset-0 bg-gradient-to-b from-black/50 via-[#121214]/70 to-[#121214] pointer-events-none"></div>
+      <div class="absolute inset-0 bg-gradient-to-b from-[#0e0f13]/80 via-[#0a0b0e]/90 to-[#08090b] pointer-events-none"></div>
 
-      <!-- 顶部控制条 -->
-      <header class="relative z-10 h-12 flex items-center justify-between px-5 border-b border-white/10 backdrop-blur-md flex-shrink-0">
+      <!-- 顶部控制条 (纯净磨砂玻璃) -->
+      <header class="relative z-10 h-12 flex items-center justify-between px-6 border-b border-white/[0.06] backdrop-blur-md flex-shrink-0">
         <!-- 明显的返回/收起按钮 -->
         <button
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors text-xs font-medium cursor-pointer"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-all text-xs font-medium cursor-pointer shadow-sm"
           title="收起播放详情 (Esc)"
           @click="playerStore.isDetailOpen = false"
         >
           <ChevronDown class="w-4 h-4" />
-          <span>收起详情</span>
+          <span>收起界面</span>
         </button>
 
-        <div class="text-center truncate px-4">
-          <div class="font-bold text-xs tracking-wide truncate">{{ playerStore.currentMusic?.name }}</div>
-          <div class="text-[11px] text-white/60 truncate mt-0.5">
+        <div class="text-center truncate px-4 max-w-md">
+          <div class="font-bold text-sm tracking-wide truncate text-zinc-100">{{ playerStore.currentMusic?.name }}</div>
+          <div class="text-xs text-zinc-400 truncate mt-0.5">
             {{ playerStore.currentMusic?.singer }}
             <span v-if="playerStore.currentMusic?.album"> · {{ playerStore.currentMusic.album }}</span>
           </div>
@@ -40,87 +40,113 @@
 
         <div class="flex items-center gap-2">
           <button
-            class="w-7 h-7 rounded-md flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition-colors text-xs"
+            class="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-colors text-xs cursor-pointer"
             title="音效均衡器"
             @click="playerStore.isSoundEffectOpen = true"
           >
-            <Sliders class="w-3.5 h-3.5" />
+            <Sliders class="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      <!-- 主体区域: 左侧黑胶大封面 + 右侧沉浸式逐行歌词 -->
-      <div class="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 px-12 py-8 overflow-hidden">
-        <!-- 左侧: 现代黑胶唱片封面 -->
-        <div class="flex flex-col items-center justify-center space-y-6">
-          <div class="relative group">
-            <!-- 唱片黑胶外圈 -->
+      <!-- 主体区域: 左侧黑胶唱片 + 唱针，右侧逐行歌词 -->
+      <div class="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-12 px-8 md:px-14 py-4 overflow-hidden">
+        <!-- 左侧: 现代黑胶唱片 + 唱针 -->
+        <div class="flex flex-col items-center justify-center relative min-h-[380px]">
+          <!-- 唱针支架与唱针 -->
+          <div class="absolute -top-4 z-30 pointer-events-none flex flex-col items-center">
+            <!-- 唱针轴心小圆盖 -->
+            <div class="w-7 h-7 rounded-full bg-zinc-400 border-2 border-zinc-600 shadow-md flex items-center justify-center">
+              <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
+            </div>
+            <!-- 唱针杆臂与磁头 (无突兀红边，采用极光青/银白磁头) -->
             <div
-              class="w-72 h-72 md:w-80 md:h-80 rounded-full bg-zinc-900 border-4 border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex items-center justify-center relative p-3 transition-transform duration-700"
+              class="w-24 h-44 -mt-2 transition-transform duration-500 origin-[16px_0px]"
+              :class="playerStore.isPlaying ? 'rotate-[0deg]' : '-rotate-[36deg]'"
+            >
+              <svg viewBox="0 0 100 180" class="w-full h-full drop-shadow-[0_10px_12px_rgba(0,0,0,0.6)]">
+                <!-- 针杆 -->
+                <path d="M16 10 L30 85 L22 145" fill="none" stroke="#d4d4d8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M22 145 L22 170" fill="none" stroke="#a1a1aa" stroke-width="6" stroke-linecap="round" />
+                <!-- 唱头 (纯净星空蓝与铬银磁头) -->
+                <rect x="15" y="160" width="14" height="15" rx="2" fill="#18181b" stroke="#38bdf8" stroke-width="1.5" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- 黑胶唱片本体 -->
+          <div class="relative group mt-6">
+            <!-- 唱片黑胶外圈与同心螺旋纹路 -->
+            <div
+              class="w-64 h-64 md:w-80 md:h-80 rounded-full bg-gradient-to-tr from-zinc-950 via-zinc-900 to-zinc-950 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/10 flex items-center justify-center relative overflow-hidden"
               :class="playerStore.isPlaying ? 'animate-spin-slow' : ''"
             >
-              <!-- 黑胶同心纹路 -->
-              <div class="absolute inset-2 rounded-full border border-white/5 pointer-events-none"></div>
-              <div class="absolute inset-5 rounded-full border border-white/5 pointer-events-none"></div>
-              <div class="absolute inset-8 rounded-full border border-white/5 pointer-events-none"></div>
+              <!-- 黑胶微反光同心环 -->
+              <div class="absolute inset-0 rounded-full border border-white/[0.04] m-4 pointer-events-none"></div>
+              <div class="absolute inset-0 rounded-full border border-white/[0.04] m-10 pointer-events-none"></div>
+              <div class="absolute inset-0 rounded-full border border-white/[0.04] m-16 pointer-events-none"></div>
+              <div class="absolute inset-0 rounded-full border border-white/[0.04] m-22 pointer-events-none"></div>
 
-              <!-- 中心封面图 -->
-              <img
-                :src="playerStore.currentMusic?.pic || defaultCover"
-                alt="cover"
-                referrerpolicy="no-referrer"
-                class="w-48 h-48 md:w-56 md:h-56 rounded-full object-cover shadow-inner pointer-events-none"
-                @error="onImgError"
-              />
+              <!-- 中心封面圆盘 -->
+              <div class="w-36 h-36 md:w-44 md:h-44 rounded-full overflow-hidden border-2 border-white/10 shadow-inner bg-zinc-800">
+                <img
+                  :src="playerStore.currentMusic?.pic || defaultCover"
+                  alt="cover"
+                  referrerpolicy="no-referrer"
+                  class="w-full h-full object-cover"
+                />
+              </div>
 
-              <!-- 中心小孔轴心 -->
+              <!-- 黑胶唱片中心小圆孔 -->
               <div class="absolute w-8 h-8 rounded-full bg-zinc-950 border-2 border-zinc-700 shadow-md"></div>
             </div>
           </div>
 
-          <!-- 歌曲快速收藏与操作 -->
-          <div class="flex items-center gap-4 text-sm text-white/70">
+          <!-- 唱片下方快捷操作（喜欢、播放模式） -->
+          <div class="flex items-center gap-4 text-xs text-zinc-300 mt-6">
             <button
-              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition active:scale-95"
-              :class="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? 'text-red-400 font-semibold' : ''"
+              class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 transition-all active:scale-95 cursor-pointer backdrop-blur-sm"
+              :class="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? 'text-rose-400 font-semibold' : ''"
               @click="playerStore.toggleFavorite(playerStore.currentMusic?.id || '')"
             >
               <Heart
                 class="w-4 h-4"
-                :class="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? 'text-red-500 fill-current' : 'text-white/60'"
+                :class="playerStore.isFavorite(playerStore.currentMusic?.id || '') ? 'text-rose-400 fill-current' : 'text-zinc-400'"
               />
-              <span>喜欢</span>
+              <span>{{ playerStore.isFavorite(playerStore.currentMusic?.id || '') ? '已喜欢' : '喜欢' }}</span>
             </button>
 
             <button
-              class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-xs"
+              class="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 transition-colors cursor-pointer backdrop-blur-sm"
               @click="playerStore.cyclePlayMode()"
             >
-              <component :is="playModeComponent" class="w-3.5 h-3.5 text-brand-400" />
+              <component :is="playModeComponent" class="w-4 h-4 text-sky-400" />
               <span>{{ playModeLabel }}</span>
             </button>
           </div>
         </div>
 
-        <!-- 右侧: 交互式平滑滚动歌词 -->
+        <!-- 右侧: 经典居中歌词瀑布 (上下渐变虚化消失 + 纯白微光高亮放大) -->
         <div class="flex flex-col h-full overflow-hidden">
           <div
             ref="lyricScrollBox"
-            class="flex-1 overflow-y-auto pr-4 space-y-5 scroll-smooth py-32"
+            class="flex-1 overflow-y-auto pr-4 space-y-6 scroll-smooth py-40 mask-lyric-fade"
           >
-            <div v-if="displayLyrics.length === 0" class="py-24 text-center text-white/40 text-sm">
+            <div v-if="displayLyrics.length === 0" class="py-32 text-center text-zinc-500 text-sm">
               纯音乐，请欣赏
             </div>
             <div
               v-for="(line, idx) in displayLyrics"
               :key="idx"
-              class="transition-all duration-200 cursor-pointer group"
-              :class="idx === activeLyricIndex ? 'text-xl md:text-2xl font-semibold text-white' : 'text-sm md:text-base text-white/40 hover:text-white/80'"
+              class="transition-all duration-300 cursor-pointer group text-center"
+              :class="idx === activeLyricIndex
+                ? 'text-xl md:text-2xl font-bold text-white scale-105 origin-center drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]'
+                : 'text-sm md:text-base text-zinc-500 hover:text-zinc-300'"
               @click="seekToLine(line.time)"
             >
-              <div class="flex items-center gap-2.5">
-                <span class="opacity-0 group-hover:opacity-100 text-[11px] text-brand-400 font-mono transition-opacity flex items-center gap-1">
-                  <Play class="w-3 h-3 fill-current" />
+              <div class="inline-flex items-center gap-2 relative">
+                <span class="opacity-0 group-hover:opacity-100 text-[10px] text-sky-400 font-mono transition-opacity absolute -left-12 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                  <Play class="w-2.5 h-2.5 fill-current" />
                   <span>{{ formatTime(line.time) }}</span>
                 </span>
                 <span>{{ line.text }}</span>
@@ -203,11 +229,17 @@ const playModeLabel = computed(() => {
 }
 
 .animate-spin-slow {
-  animation: spin-slow 25s linear infinite;
+  animation: spin-slow 22s linear infinite;
 }
 
-.mask-fade {
-  mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+.animate-spin-pause {
+  animation: spin-slow 22s linear infinite;
+  animation-play-state: paused;
+}
+
+.mask-lyric-fade {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
 }
 </style>
 
