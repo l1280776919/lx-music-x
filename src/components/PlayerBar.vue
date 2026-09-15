@@ -118,22 +118,26 @@
         </button>
       </div>
 
-      <!-- 进度条 (细条毛玻璃轨道 + 纯蓝/白光圆点) -->
-      <div class="w-full flex items-center gap-2.5 text-[10px] text-zinc-500 font-mono mt-1">
-        <span class="w-8 text-right tabular-nums">{{ formatTime(playerStore.currentTime) }}</span>
+      <!-- 进度条 (细条毛玻璃轨道 + 纯蓝/白光圆点，支持平滑拖拽与点击) -->
+      <div class="w-full flex items-center gap-2.5 text-[10px] text-zinc-500 font-mono mt-1 select-none">
+        <span class="w-8 text-right tabular-nums">{{ formatTime(displayCurrentTime) }}</span>
         <div
-          class="flex-1 h-3 flex items-center relative cursor-pointer group"
+          ref="progressBarRef"
+          class="flex-1 h-3 flex items-center relative cursor-pointer group py-1"
+          @mousedown="handleProgressMouseDown"
+          @touchstart.passive="handleProgressTouchStart"
           @click="handleSeek"
         >
-          <div class="w-full h-1 group-hover:h-1.5 bg-white/10 rounded-full transition-all overflow-hidden relative">
+          <div class="w-full h-1 group-hover:h-1.5 bg-white/10 rounded-full transition-all overflow-hidden relative" :class="{ 'h-1.5': isDragging }">
             <div
               class="h-full bg-gradient-to-r from-sky-400 to-blue-500 rounded-full"
-              :style="{ width: `${playerStore.progressPercent}%` }"
+              :style="{ width: `${displayProgressPercent}%` }"
             ></div>
           </div>
           <div
-            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-            :style="{ left: `${playerStore.progressPercent}%` }"
+            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] border border-white/20 transition-opacity pointer-events-none"
+            :class="isDragging ? 'opacity-100 scale-125' : 'opacity-0 group-hover:opacity-100'"
+            :style="{ left: `${displayProgressPercent}%` }"
           ></div>
         </div>
         <span class="w-8 tabular-nums">{{ formatTime(playerStore.duration) }}</span>
@@ -152,6 +156,28 @@
         @click="playerStore.isSoundEffectOpen = true"
       >
         <Sliders class="w-4 h-4" />
+      </button>
+
+      <!-- 睡眠定时器 -->
+      <button
+        class="p-2 rounded-lg text-xs font-medium transition-all cursor-pointer relative"
+        :class="playerStore.sleepTimerMode
+          ? 'bg-sky-500/20 text-sky-400 border border-sky-400/40 shadow-sm'
+          : 'text-zinc-400 hover:text-white hover:bg-white/10'"
+        :title="playerStore.sleepTimerMode ? '睡眠定时器进行中' : '睡眠定时器'"
+        @click="playerStore.isSleepTimerOpen = true"
+      >
+        <Moon class="w-4 h-4" />
+        <span
+          v-if="playerStore.sleepTimerRemaining !== null"
+          class="absolute -top-1 -right-1 px-1 py-0.2 rounded-full bg-sky-500 text-[8px] text-white font-bold font-mono leading-none shadow"
+        >
+          {{ Math.ceil(playerStore.sleepTimerRemaining / 60) }}m
+        </span>
+        <span
+          v-else-if="playerStore.sleepTimerMode === 'track_end'"
+          class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-indigo-400 animate-pulse shadow"
+        ></span>
       </button>
 
       <!-- 桌面歌词开关 ("词"按钮) -->
@@ -196,13 +222,13 @@
           <Volume2 v-else class="w-4 h-4" />
         </button>
         <input
-          v-model.number="playerStore.volume"
+          :value="playerStore.volume"
           type="range"
           min="0"
           max="1"
           step="0.01"
           class="w-18 h-1 bg-white/10 rounded appearance-none accent-sky-400 cursor-pointer"
-          @input="playerStore.setVolume(playerStore.volume)"
+          @input="playerStore.setVolume(Number(($event.target as HTMLInputElement).value))"
         />
       </div>
     </div>
@@ -210,7 +236,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/store/player'
 import { toggleDesktopLyricWindow } from '@/core/tauriBridge'
 import {
@@ -231,6 +257,7 @@ import {
   VolumeX,
   Music2,
   ListMusic,
+  Moon,
 } from 'lucide-vue-next'
 
 const playerStore = usePlayerStore()
@@ -260,11 +287,87 @@ function formatTime(secs: number) {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
+const progressBarRef = ref<HTMLElement | null>(null)
+const isDragging = ref(false)
+const dragRatio = ref(0)
+
+const displayProgressPercent = computed(() => {
+  if (isDragging.value) {
+    return dragRatio.value * 100
+  }
+  return playerStore.progressPercent
+})
+
+const displayCurrentTime = computed(() => {
+  if (isDragging.value) {
+    return dragRatio.value * (playerStore.duration || 0)
+  }
+  return playerStore.currentTime
+})
+
+function calculateRatio(clientX: number) {
+  if (!progressBarRef.value) return 0
+  const rect = progressBarRef.value.getBoundingClientRect()
+  const clickX = clientX - rect.left
+  return Math.max(0, Math.min(1, clickX / rect.width))
+}
+
+function handleProgressMouseDown(e: MouseEvent) {
+  if (e.button !== 0) return // 仅响应左键
+  isDragging.value = true
+  dragRatio.value = calculateRatio(e.clientX)
+
+  function onMouseMove(moveEvent: MouseEvent) {
+    dragRatio.value = calculateRatio(moveEvent.clientX)
+  }
+
+  function onMouseUp(upEvent: MouseEvent) {
+    if (isDragging.value) {
+      dragRatio.value = calculateRatio(upEvent.clientX)
+      const targetTime = dragRatio.value * (playerStore.duration || 0)
+      playerStore.seekTime(targetTime)
+      isDragging.value = false
+    }
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
+}
+
+function handleProgressTouchStart(e: TouchEvent) {
+  if (e.touches.length === 0) return
+  isDragging.value = true
+  dragRatio.value = calculateRatio(e.touches[0].clientX)
+
+  function onTouchMove(moveEvent: TouchEvent) {
+    if (moveEvent.touches.length === 0) return
+    dragRatio.value = calculateRatio(moveEvent.touches[0].clientX)
+  }
+
+  function onTouchEnd(endEvent: TouchEvent) {
+    if (isDragging.value) {
+      if (endEvent.changedTouches.length > 0) {
+        dragRatio.value = calculateRatio(endEvent.changedTouches[0].clientX)
+      }
+      const targetTime = dragRatio.value * (playerStore.duration || 0)
+      playerStore.seekTime(targetTime)
+      isDragging.value = false
+    }
+    window.removeEventListener('touchmove', onTouchMove)
+    window.removeEventListener('touchend', onTouchEnd)
+  }
+
+  window.addEventListener('touchmove', onTouchMove)
+  window.addEventListener('touchend', onTouchEnd)
+}
+
 function handleSeek(e: MouseEvent) {
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const clickX = e.clientX - rect.left
-  const ratio = Math.max(0, Math.min(1, clickX / rect.width))
-  playerStore.seekTime(ratio * playerStore.duration)
+  // 如果刚才是在拖动释放，不重复触发单次 click seek
+  if (isDragging.value) return
+  const ratio = calculateRatio(e.clientX)
+  playerStore.seekTime(ratio * (playerStore.duration || 0))
 }
 
 const playModeLabel = computed(() => {

@@ -39,14 +39,14 @@
               :key="item.path"
               :to="item.path"
               class="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all group border border-transparent"
-              :class="$route.path === item.path
+              :class="isItemActive(item.path)
                 ? 'bg-white/10 text-white font-semibold border-white/10 shadow-sm backdrop-blur-md'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'"
             >
               <component
                 :is="item.icon"
                 class="w-4 h-4 transition-colors"
-                :class="$route.path === item.path ? 'text-sky-400' : 'text-zinc-500 group-hover:text-zinc-300'"
+                :class="isItemActive(item.path) ? 'text-sky-400' : 'text-zinc-500 group-hover:text-zinc-300'"
               />
               <span>{{ item.title }}</span>
             </RouterLink>
@@ -76,7 +76,7 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { Music2, Compass, Search, Library, Settings } from 'lucide-vue-next'
+import { Compass, Search, Library, Settings, History } from 'lucide-vue-next'
 
 const $route = useRoute()
 
@@ -87,6 +87,14 @@ const onlineNav = [
 
 const myNav = [
   { title: '我的歌单', path: '/playlist', icon: Library },
+  { title: '最近播放', path: '/playlist?id=history', icon: History },
 ]
+
+function isItemActive(path: string): boolean {
+  if (path.includes('?')) {
+    return $route.fullPath === path
+  }
+  return $route.path === path && !$route.fullPath.includes('?')
+}
 </script>
 

@@ -286,6 +286,8 @@ impl Engine {
         self.stop();
         self.error = None;
         if let Some(song) = self.library.current().cloned() {
+            self.library.record_history(song.clone());
+            let _ = self.db.save(&self.library);
             self.loading = true;
             self.resolve_tx
                 .send((

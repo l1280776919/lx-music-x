@@ -301,8 +301,8 @@
       <div class="bg-[#141518]/70 backdrop-blur-xl rounded-2xl border border-white/[0.08] shadow-lg p-5 space-y-3.5">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white font-bold shadow-md shadow-sky-500/20">
-              <Music2 class="w-4 h-4" />
+            <div class="w-8 h-8 rounded-xl overflow-hidden border border-white/10 shadow-md shadow-sky-500/20 flex items-center justify-center">
+              <img src="/app-logo.png" alt="LX Music" class="w-full h-full object-cover" />
             </div>
             <div>
               <div class="font-bold text-xs text-zinc-100">洛雪音乐 (LX Music X)</div>
@@ -310,7 +310,7 @@
             </div>
           </div>
           <span class="text-xs font-mono text-zinc-400">
-            v0.1.6
+            v{{ sysInfo?.version || '0.1.7' }}
           </span>
         </div>
 
@@ -325,7 +325,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Monitor, Sliders, Code2, Database, Cpu, Plus, Info, Upload, RotateCcw, Globe, Check, Sparkles, Image as ImageIcon } from 'lucide-vue-next'
+import { Monitor, Sliders, Code2, Database, Cpu, Plus, Info, Upload, RotateCcw, Globe, Check, Sparkles, Image as ImageIcon, Music2 } from 'lucide-vue-next'
 import { usePlayerStore } from '@/store/player'
 import { usePlaylistStore } from '@/store/playlist'
 import { useThemeStore } from '@/store/theme'

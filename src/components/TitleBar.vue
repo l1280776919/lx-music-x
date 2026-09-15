@@ -16,10 +16,10 @@
         <span>收起详情</span>
       </button>
 
-      <!-- 默认品牌区域 (暗色质感微标) -->
+      <!-- 默认品牌区域 (暗色质感微标 + 专属高精度应用图标) -->
       <div v-else class="flex items-center gap-2 pointer-events-none">
-        <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-sky-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-sky-400 shadow-sm backdrop-blur-sm">
-          <Music2 class="w-3.5 h-3.5" />
+        <div class="w-6 h-6 rounded-lg overflow-hidden border border-white/10 shadow-sm backdrop-blur-sm flex items-center justify-center">
+          <img src="/app-logo.png" alt="LX Music" class="w-full h-full object-cover" />
         </div>
         <span class="font-bold text-zinc-100 text-xs tracking-wide">
           LX Music

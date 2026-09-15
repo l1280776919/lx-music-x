@@ -48,6 +48,9 @@
     <!-- 10 段专业 EQ 音效调节悬浮层 -->
     <SoundEffectModal />
 
+    <!-- 睡眠定时器弹窗 -->
+    <SleepTimerModal />
+
     <!-- 播放队列抽屉 -->
     <QueueDrawer />
   </div>
@@ -62,6 +65,7 @@ import Sidebar from '@/components/Sidebar.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import PlayerDetail from '@/components/PlayerDetail.vue'
 import SoundEffectModal from '@/components/SoundEffectModal.vue'
+import SleepTimerModal from '@/components/SleepTimerModal.vue'
 import QueueDrawer from '@/components/QueueDrawer.vue'
 import { usePlayerStore } from '@/store/player'
 import { useThemeStore } from '@/store/theme'

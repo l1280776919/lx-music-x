@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { backendState as state, sendCommand } from '@/core/backend'
 import { usePlaylistStore } from './playlist'
 
@@ -17,11 +17,65 @@ export const usePlayerStore = defineStore('player', () => {
   const isSoundEffectOpen = ref(false)
   const isQueueOpen = ref(false)
   const isDesktopLyricOpen = ref(false)
+  const isSleepTimerOpen = ref(false)
+  const sleepTimerRemaining = ref<number | null>(null)
+  const sleepTimerMode = ref<'time' | 'track_end' | null>(null)
+  let sleepTimerInterval: any = null
+
+  function cancelSleepTimer() {
+    if (sleepTimerInterval) {
+      clearInterval(sleepTimerInterval)
+      sleepTimerInterval = null
+    }
+    sleepTimerRemaining.value = null
+    sleepTimerMode.value = null
+  }
+
+  function setSleepTimer(minutes: number) {
+    cancelSleepTimer()
+    sleepTimerMode.value = 'time'
+    sleepTimerRemaining.value = Math.round(minutes * 60)
+
+    sleepTimerInterval = setInterval(() => {
+      if (sleepTimerRemaining.value === null) {
+        cancelSleepTimer()
+        return
+      }
+      sleepTimerRemaining.value--
+      if (sleepTimerRemaining.value <= 0) {
+        cancelSleepTimer()
+        if (state.playback.isPlaying) {
+          sendCommand('toggle')
+        }
+      }
+    }, 1000)
+  }
+
+  function setSleepTimerTrackEnd() {
+    cancelSleepTimer()
+    sleepTimerMode.value = 'track_end'
+    const songId = currentMusic.value?.id || ''
+    const unwatch = watch(() => currentMusic.value?.id, (newId) => {
+      if (sleepTimerMode.value === 'track_end' && newId !== songId) {
+        cancelSleepTimer()
+        if (state.playback.isPlaying) {
+          sendCommand('toggle')
+        }
+        unwatch()
+      }
+    })
+  }
+
   return {
     currentMusic, isDetailOpen, isSoundEffectOpen, isQueueOpen, isDesktopLyricOpen,
+    isSleepTimerOpen, sleepTimerRemaining, sleepTimerMode,
+    setSleepTimer, setSleepTimerTrackEnd, cancelSleepTimer,
     playlist: computed(() => state.library.queue),
     currentIndex: computed(() => state.library.currentIndex),
-    volume: computed(() => state.library.volume),
+    volume: computed({
+      get: () => state.library.volume,
+      set: (val: number) => sendCommand('volume', { value: val }),
+    }),
     isMuted: computed(() => state.library.muted),
     playMode: computed(() => state.library.mode as PlayMode),
     isPlaying: computed(() => state.playback.isPlaying),

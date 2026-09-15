@@ -75,6 +75,7 @@ impl Default for Library {
         Self {
             playlists: [
                 ("fav", "我喜欢的音乐"),
+                ("history", "最近播放"),
                 ("local", "本地音乐"),
                 ("default", "默认试听列表"),
             ]
@@ -101,6 +102,16 @@ impl Default for Library {
 impl Library {
     pub fn current(&self) -> Option<&Song> {
         self.queue.get(self.current_index)
+    }
+
+    pub fn record_history(&mut self, song: Song) {
+        if let Some(list) = self.playlists.iter_mut().find(|p| p.id == "history") {
+            list.songs.retain(|s| !s.same(&song));
+            list.songs.insert(0, song);
+            if list.songs.len() > 150 {
+                list.songs.truncate(150);
+            }
+        }
     }
 
     pub fn normalize(&mut self) {
@@ -177,7 +188,7 @@ impl Library {
                 Ok(result)
             }
             "delete" => {
-                if ["fav", "local"].contains(&list_id) {
+                if ["fav", "local", "history"].contains(&list_id) {
                     return Err("不能删除内置歌单".into());
                 }
                 self.playlists.retain(|p| p.id != list_id);
@@ -291,6 +302,9 @@ impl Library {
                         list.songs = serde_json::from_value(data["songs"].clone())
                             .map_err(|e| e.to_string())?;
                     }
+                    "clear" => {
+                        list.songs.clear();
+                    }
                     _ => return Err(format!("未知歌单操作: {action}")),
                 }
                 Ok(json!(true))
@@ -388,6 +402,45 @@ mod tests {
         let lists = json!({"playlists": [{"id":"1","name":"test","songs":[]},{"id":"2","name":"test","songs":[]}]});
         l.edit("import", lists.clone()).unwrap();
         l.edit("import", lists).unwrap();
-        assert_eq!(l.playlists.len(), 5);
+        assert_eq!(l.playlists.len(), 6);
+    }
+    #[test]
+    fn history_recording_deduplicates_and_limits() {
+        let mut l = Library::default();
+        let song1 = Song {
+            id: "s1".into(),
+            source: "wy".into(),
+            name: "Song 1".into(),
+            singer: "Singer 1".into(),
+            album: String::new(),
+            interval: String::new(),
+            path: String::new(),
+            url: String::new(),
+            pic: String::new(),
+            lrc: String::new(),
+            tlrc: String::new(),
+            raw: json!(null),
+        };
+        let song2 = Song {
+            id: "s2".into(),
+            source: "wy".into(),
+            name: "Song 2".into(),
+            singer: "Singer 2".into(),
+            album: String::new(),
+            interval: String::new(),
+            path: String::new(),
+            url: String::new(),
+            pic: String::new(),
+            lrc: String::new(),
+            tlrc: String::new(),
+            raw: json!(null),
+        };
+        l.record_history(song1.clone());
+        l.record_history(song2.clone());
+        l.record_history(song1.clone());
+        let hist = l.playlists.iter().find(|p| p.id == "history").unwrap();
+        assert_eq!(hist.songs.len(), 2);
+        assert_eq!(hist.songs[0].id, "s1");
+        assert_eq!(hist.songs[1].id, "s2");
     }
 }

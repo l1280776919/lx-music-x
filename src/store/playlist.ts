@@ -27,6 +27,7 @@ export const usePlaylistStore = defineStore('playlist', () => {
     batchRemoveSongs: (listId: string, songIds: string[]) => edit('batch_remove', { listId, songIds }),
     reorderSong: (listId: string, from: number, to: number) => edit('reorder', { listId, from, to }),
     replaceSongs: (listId: string, songs: MusicItem[]) => edit('replace_songs', { listId, songs }),
+    clearPlaylist: (listId: string) => edit('clear', { listId }),
     setLocalSongs: (songs: MusicItem[]) => edit('local', { listId: 'local', songs }),
     importLegacyPlaylists: (playlists: ImportedPlaylist[]) => edit('import', { playlists }),
     downloadSong: async (song: MusicItem) => {

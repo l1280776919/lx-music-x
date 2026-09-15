@@ -11,6 +11,7 @@ Object.assign(globalThis, {
       case 'boardSongs': return online.getLeaderboardSongs(data.bangId, data.source, data.page)
       case 'url': return online.getSongPlayUrl(data)
       case 'lyric': return online.getSongLyric(data)
+      case 'playlistDetail': return online.fetchOnlinePlaylistDetail(data.input)
       default: throw new Error(`未知音源操作: ${action}`)
     }
   },

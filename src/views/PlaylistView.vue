@@ -9,6 +9,14 @@
       <div class="flex items-center gap-2">
         <button
           class="desktop-btn-secondary"
+          title="解析网易云音乐、QQ音乐歌单分享链接"
+          @click="isImportOnlineModalOpen = true"
+        >
+          <Link2 class="w-3.5 h-3.5 text-sky-400" />
+          <span>导入在线歌单</span>
+        </button>
+        <button
+          class="desktop-btn-secondary"
           @click="handleImportLegacy"
         >
           <Download class="w-3.5 h-3.5" />
@@ -169,6 +177,16 @@
             </button>
 
             <button
+              v-if="selectedListId === 'history' && filteredSongs.length"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 border border-white/10 text-xs font-medium transition cursor-pointer"
+              title="清空最近播放历史"
+              @click="handleClearHistory"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+              <span>清空历史</span>
+            </button>
+
+            <button
               v-if="selectedListId === 'local'"
               class="desktop-btn-secondary"
               @click="handleScanLocalMusic"
@@ -182,14 +200,23 @@
         <!-- 列表表头 (支持全选/反选) -->
         <div class="h-9 px-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider bg-white/[0.02] border-b border-white/[0.06] flex items-center justify-between flex-shrink-0 select-none">
           <div class="flex items-center gap-2 flex-1 min-w-[200px] overflow-hidden">
-            <!-- 全选 Checkbox -->
+            <!-- 全选 Checkbox (深色自适应极简风格) -->
             <div class="w-6 flex items-center justify-center flex-shrink-0">
-              <input
-                type="checkbox"
-                :checked="isAllSelected"
-                class="w-3.5 h-3.5 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-400"
-                @change="toggleSelectAll"
-              />
+              <div
+                class="w-3.5 h-3.5 rounded border flex items-center justify-center transition-all cursor-pointer"
+                :class="[
+                  isAllSelected
+                    ? 'bg-sky-500 border-sky-400 text-white shadow-sm shadow-sky-500/40'
+                    : selectedSongIds.size > 0
+                      ? 'bg-sky-500/20 border-sky-400 text-sky-400'
+                      : 'border-white/30 bg-black/40 hover:border-sky-400/80 hover:bg-white/10'
+                ]"
+                title="全选 / 取消全选"
+                @click="toggleSelectAll"
+              >
+                <Check v-if="isAllSelected" class="w-2.5 h-2.5 stroke-[3]" />
+                <Minus v-else-if="selectedSongIds.size > 0" class="w-2.5 h-2.5 stroke-[3]" />
+              </div>
             </div>
             <span class="w-7 text-center flex-shrink-0 font-mono text-[11px]">#</span>
             <span class="flex-1">歌曲标题</span>
@@ -235,12 +262,19 @@
             <!-- 多选框 + 序号与标题 -->
             <div class="flex items-center gap-2 flex-1 min-w-[200px] overflow-hidden pr-3">
               <div class="w-6 flex items-center justify-center flex-shrink-0" @click.stop>
-                <input
-                  type="checkbox"
-                  :checked="selectedSongIds.has(song.id)"
-                  class="w-3.5 h-3.5 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-400"
-                  @change="toggleSelectSong(song.id)"
-                />
+                <div
+                  class="w-3.5 h-3.5 rounded border flex items-center justify-center transition-all cursor-pointer"
+                  :class="[
+                    selectedSongIds.has(song.id)
+                      ? 'bg-sky-500 border-sky-400 text-white shadow-sm shadow-sky-500/40 opacity-100'
+                      : selectedSongIds.size > 0
+                        ? 'border-white/25 bg-black/40 hover:border-sky-400/80 opacity-100'
+                        : 'border-white/25 bg-black/40 hover:border-sky-400/80 opacity-0 group-hover:opacity-100'
+                  ]"
+                  @click.stop="toggleSelectSong(song.id)"
+                >
+                  <Check v-if="selectedSongIds.has(song.id)" class="w-2.5 h-2.5 stroke-[3]" />
+                </div>
               </div>
 
               <div class="w-7 text-center flex-shrink-0 font-mono text-zinc-500 group-hover:text-zinc-300">
@@ -420,16 +454,21 @@
         </transition>
       </main>
     </div>
+
+    <!-- 在线歌单解析与导入弹窗 -->
+    <ImportPlaylistModal v-model="isImportOnlineModalOpen" @imported="handleOnlinePlaylistImported" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   Download,
   Plus,
   HardDrive,
   Heart,
+  History,
   ListMusic,
   Archive,
   Folder,
@@ -444,11 +483,15 @@ import {
   CheckSquare,
   ListPlus,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Link2,
+  Check,
+  Minus
 } from 'lucide-vue-next'
 import { usePlayerStore, MusicItem } from '@/store/player'
 import { usePlaylistStore } from '@/store/playlist'
 import { scanAndImportLegacyData, openFolderPicker, scanLocalMusic } from '@/core/tauriBridge'
+import ImportPlaylistModal from '@/components/ImportPlaylistModal.vue'
 
 const defaultCover = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2327272a"/><circle cx="50" cy="50" r="38" fill="%2318181b" stroke="%233f3f46" stroke-width="2"/><circle cx="50" cy="50" r="26" fill="%2327272a"/><circle cx="50" cy="50" r="14" fill="%2338bdf8"/><circle cx="50" cy="50" r="4" fill="%2309090b"/></svg>'
 
@@ -459,12 +502,35 @@ function onImgError(e: Event) {
   }
 }
 
+const route = useRoute()
 const playerStore = usePlayerStore()
 const playlistStore = usePlaylistStore()
 const selectedListId = ref('fav')
 const importStatusText = ref('一键迁移原版歌单')
 const isSidebarCollapsed = ref(true)
+const isImportOnlineModalOpen = ref(false)
 const filterKeyword = ref('')
+
+watch(
+  () => route.query.id,
+  (newId) => {
+    if (newId && typeof newId === 'string') {
+      selectedListId.value = newId
+    }
+  },
+  { immediate: true }
+)
+
+function handleOnlinePlaylistImported(id: string) {
+  selectedListId.value = id
+}
+
+async function handleClearHistory() {
+  if (confirm('确定要清空全部最近播放记录吗？')) {
+    await playlistStore.clearPlaylist('history')
+    selectedSongIds.value.clear()
+  }
+}
 
 const customLists = computed(() => playlistStore.customLists)
 
@@ -475,6 +541,7 @@ const totalSongCount = computed(() => {
 function getPlaylistIcon(id: string) {
   if (id === 'local') return HardDrive
   if (id === 'fav') return Heart
+  if (id === 'history') return History
   if (id === 'default') return ListMusic
   if (id.startsWith('legacy') || id.startsWith('imported')) return Archive
   return Folder

@@ -259,3 +259,73 @@ export async function getSongPlayUrl(item: MusicItem): Promise<string> {
 
   return ''
 }
+
+export interface OnlinePlaylistDetail {
+  id: string
+  name: string
+  source: string
+  cover?: string
+  description?: string
+  author?: string
+  total: number
+  songs: MusicItem[]
+}
+
+/**
+ * 解析并抓取第三方在线平台（网易云、QQ音乐等）歌单详情与歌曲列表
+ */
+export async function fetchOnlinePlaylistDetail(input: string): Promise<OnlinePlaylistDetail> {
+  const trimmed = input.trim()
+  if (!trimmed) throw new Error('请输入有效的歌单链接或 ID')
+
+  let source = 'wy'
+  let targetId = trimmed
+
+  if (/qq\.com|y\.qq/.test(trimmed)) {
+    source = 'tx'
+  } else if (/163\.com/.test(trimmed)) {
+    source = 'wy'
+  } else if (/kugou\.com/.test(trimmed)) {
+    source = 'kg'
+  }
+
+  const sdk = (musicSdk as any)[source]
+  if (!sdk || !sdk.songList || !sdk.songList.getListDetail) {
+    throw new Error(`暂不支持解析该平台歌单: ${source}`)
+  }
+
+  let res = await sdk.songList.getListDetail(targetId, 1)
+  const detail = res?.promise ? await res.promise : res
+  if (!detail) {
+    throw new Error('获取歌单详情失败，可能为私密歌单或链接无效')
+  }
+
+  const rawList = Array.isArray(detail.list) ? detail.list : []
+  const songs: MusicItem[] = rawList.map((item: any) => {
+    let pic = item.img || item.pic
+    if (!pic && item.album && typeof item.album === 'object') {
+      pic = item.album.picUrl
+    }
+    return {
+      id: `${source}_${item.songmid || item.id || Math.random().toString(36).slice(2)}`,
+      name: item.name || '未知曲目',
+      singer: item.singer || '群星',
+      album: item.albumName || (typeof item.album === 'string' ? item.album : item.album?.name) || '单曲',
+      interval: item.interval || item.songTime || '03:30',
+      pic: pic || '',
+      source,
+      raw: item,
+    }
+  })
+
+  return {
+    id: `${source}_${detail.info?.id || targetId}`,
+    name: detail.info?.name || '外部导入歌单',
+    source,
+    cover: detail.info?.img || songs[0]?.pic || '',
+    description: detail.info?.desc || '',
+    author: detail.info?.author || '',
+    total: detail.total || songs.length,
+    songs,
+  }
+}

@@ -140,6 +140,44 @@
               <span>{{ playModeLabel }}</span>
             </button>
           </div>
+
+          <!-- 音频律动频谱 Canvas 与控制按钮 -->
+          <div class="w-full max-w-[340px] flex flex-col items-center gap-2 mt-4">
+            <div class="w-full h-16 relative flex items-center justify-center">
+              <canvas
+                ref="visualizerCanvas"
+                width="340"
+                height="64"
+                class="w-full h-full pointer-events-none transition-opacity duration-300"
+                :class="visualizerMode === 'off' ? 'opacity-0' : 'opacity-90'"
+              ></canvas>
+            </div>
+
+            <!-- 频谱模式切换按钮 -->
+            <div class="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10 text-[11px]">
+              <button
+                class="px-2.5 py-0.5 rounded-full transition cursor-pointer"
+                :class="visualizerMode === 'bars' ? 'bg-sky-500/20 text-sky-400 font-semibold border border-sky-400/30' : 'text-zinc-400 hover:text-white'"
+                @click="setVisualizerMode('bars')"
+              >
+                柱状频谱
+              </button>
+              <button
+                class="px-2.5 py-0.5 rounded-full transition cursor-pointer"
+                :class="visualizerMode === 'wave' ? 'bg-sky-500/20 text-sky-400 font-semibold border border-sky-400/30' : 'text-zinc-400 hover:text-white'"
+                @click="setVisualizerMode('wave')"
+              >
+                流光声波
+              </button>
+              <button
+                class="px-2.5 py-0.5 rounded-full transition cursor-pointer"
+                :class="visualizerMode === 'off' ? 'bg-white/10 text-zinc-200 font-semibold' : 'text-zinc-500 hover:text-zinc-300'"
+                @click="setVisualizerMode('off')"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- 右侧: 经典居中歌词瀑布 (上下渐变虚化消失 + 纯白微光高亮放大) -->
@@ -245,6 +283,110 @@ const playModeLabel = computed(() => {
     default: return '列表循环'
   }
 })
+
+// 音频律动频谱 Canvas 渲染引擎
+const visualizerCanvas = ref<HTMLCanvasElement | null>(null)
+const VISUALIZER_KEY = 'lx_visualizer_mode'
+const visualizerMode = ref<'bars' | 'wave' | 'off'>(
+  (localStorage.getItem(VISUALIZER_KEY) as any) || 'bars'
+)
+
+function setVisualizerMode(mode: 'bars' | 'wave' | 'off') {
+  visualizerMode.value = mode
+  localStorage.setItem(VISUALIZER_KEY, mode)
+}
+
+let animFrameId: number | null = null
+let waveOffset = 0
+
+function renderVisualizer() {
+  if (!playerStore.isDetailOpen) return
+  const canvas = visualizerCanvas.value
+  if (!canvas) {
+    animFrameId = requestAnimationFrame(renderVisualizer)
+    return
+  }
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const w = canvas.width
+  const h = canvas.height
+  ctx.clearRect(0, 0, w, h)
+
+  if (visualizerMode.value === 'off') {
+    animFrameId = requestAnimationFrame(renderVisualizer)
+    return
+  }
+
+  const isPlaying = playerStore.isPlaying
+  const speed = isPlaying ? 0.08 : 0.02
+  waveOffset += speed
+
+  if (visualizerMode.value === 'bars') {
+    const numBars = 36
+    const barWidth = 5
+    const gap = (w - numBars * barWidth) / (numBars - 1)
+    const mid = numBars / 2
+
+    for (let i = 0; i < numBars; i++) {
+      const distFromCenter = 1 - Math.abs(i - mid) / mid
+      const basePulse = isPlaying
+        ? Math.sin(waveOffset * 2.5 + i * 0.45) * 0.4 +
+          Math.cos(waveOffset * 1.8 + i * 0.25) * 0.3 + 0.35
+        : 0.08 + Math.sin(waveOffset + i * 0.2) * 0.04
+
+      const energy = Math.max(0.06, basePulse * distFromCenter)
+      const barHeight = Math.min(h - 4, Math.max(4, energy * h * 0.95))
+      const x = i * (barWidth + gap)
+      const y = (h - barHeight) / 2
+
+      const gradient = ctx.createLinearGradient(0, y, 0, y + barHeight)
+      gradient.addColorStop(0, '#38bdf8')
+      gradient.addColorStop(0.5, '#818cf8')
+      gradient.addColorStop(1, '#38bdf8')
+
+      ctx.fillStyle = gradient
+      ctx.shadowColor = 'rgba(56, 189, 248, 0.4)'
+      ctx.shadowBlur = 6
+      ctx.beginPath()
+      ctx.roundRect(x, y, barWidth, barHeight, 2.5)
+      ctx.fill()
+    }
+  } else if (visualizerMode.value === 'wave') {
+    ctx.shadowBlur = 10
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.5)'
+
+    const layers = [
+      { color: 'rgba(56, 189, 248, 0.75)', amp: isPlaying ? 16 : 4, freq: 0.025, phase: 0 },
+      { color: 'rgba(129, 140, 248, 0.55)', amp: isPlaying ? 12 : 3, freq: 0.035, phase: 2 },
+    ]
+
+    for (const l of layers) {
+      ctx.beginPath()
+      ctx.strokeStyle = l.color
+      ctx.lineWidth = 2.5
+      for (let x = 0; x < w; x++) {
+        const y = h / 2 + Math.sin(x * l.freq + waveOffset + l.phase) * l.amp * Math.sin((x / w) * Math.PI)
+        if (x === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
+  }
+
+  animFrameId = requestAnimationFrame(renderVisualizer)
+}
+
+watch(() => playerStore.isDetailOpen, (open) => {
+  if (open) {
+    if (!animFrameId) animFrameId = requestAnimationFrame(renderVisualizer)
+  } else {
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId)
+      animFrameId = null
+    }
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>

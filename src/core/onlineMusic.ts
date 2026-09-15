@@ -14,3 +14,17 @@ export const searchOnlineMusic = (keyword: string, source = 'wy', page = 1, limi
   call<{ list: MusicItem[]; total: number }>('search', { keyword, source, page, limit })
 export const getOnlineLeaderboards = (source = 'wy') => call<any[]>('boards', { source })
 export const getLeaderboardSongs = (bangId: string, source = 'wy', page = 1) => call<MusicItem[]>('boardSongs', { bangId, source, page })
+
+export interface OnlinePlaylistDetail {
+  id: string
+  name: string
+  source: string
+  cover?: string
+  description?: string
+  author?: string
+  total: number
+  songs: MusicItem[]
+}
+
+export const fetchOnlinePlaylistDetail = (input: string) =>
+  call<OnlinePlaylistDetail>('playlistDetail', { input })
